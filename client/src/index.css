@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.custom-calendar {
+    background: transparent;
+    border: none;
+    color: white;
+}
+
+.react-calendar__tile {
+    background: transparent;
+    border-radius: 10px;
+}
+
+.react-calendar__tile--active {
+    background: linear-gradient(to right, #4ade80, #22c55e);
+    color: white;
+}
+
+.react-calendar__tile:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.react-calendar__navigation button {
+    color: white;
+}
+
+.react-calendar__month-view__weekdays {
+    color: #94a3b8;
+}
+
+
+.button-gradient {
+    position: relative;
+    overflow: hidden;
+
+    background: linear-gradient(to right, #4ade80, #2dd4bf);
+    /* green-400 → teal-400 */
+    color: #0f1e33;
+
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 12px;
+
+    box-shadow: 0 4px 10px rgba(74, 222, 128, 0.2);
+
+    transition: all 0.3s ease-in-out;
+    cursor: pointer;
+}
+
+/* Hover */
+.button-gradient:hover {
+    background: linear-gradient(to right, #22c55e, #14b8a6);
+    /* green-500 → teal-500 */
+    transform: scale(1.03);
+}
+
+/* Active (click) */
+.button-gradient:active {
+    transform: scale(0.97);
+}
+
+
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+
+
+
+
+
+
+.react-datepicker-wrapper {
+    width: 100%;
+}
+
+/* Main container */
+.react-datepicker {
+    background-color: #0f1b2e;
+    border: 1px solid #2e3b55;
+    color: #e5e7eb;
+    border-radius: 12px;
+    font-family: inherit;
+}
+
+/* Header */
+.react-datepicker__header {
+    background-color: #132033;
+    border-bottom: 1px solid #2e3b55;
+}
+
+/* Month text */
+.react-datepicker__current-month {
+    color: white;
+    font-weight: 600;
+}
+
+/* Day names (Su Mo Tu...) */
+.react-datepicker__day-name {
+    color: #9ca3af;
+}
+
+/* Days */
+.react-datepicker__day {
+    color: #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+/* Hover */
+.react-datepicker__day:hover {
+    background-color: #1c2a3f;
+}
+
+/* Selected day */
+.react-datepicker__day--selected {
+    background: linear-gradient(to right, #22c55e, #14b8a6);
+    color: black;
+}
+
+/* Range selection */
+.react-datepicker__day--in-range {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+/* Keyboard selected */
+.react-datepicker__day--keyboard-selected {
+    background-color: #22c55e;
+    color: black;
+}
+
+/* Disabled days */
+.react-datepicker__day--disabled {
+    color: #4b5563;
+}
+
+/* Today */
+.react-datepicker__day--today {
+    border: 1px solid #22c55e;
+}
+
+/* Navigation arrows */
+.react-datepicker__navigation-icon::before {
+    border-color: #9ca3af;
+}
+
+/* Triangle (top arrow) */
+.react-datepicker__triangle {
+    display: none;
+}
+
+
+/* Calendar popup container */
+.react-datepicker-popper {
+    z-index: 9999;
+}
+
+/* Main calendar */
+.react-datepicker {
+    background-color: #0f1b2e !important;
+    border: 1px solid #2e3b55 !important;
+    border-radius: 12px !important;
+    color: white !important;
+}
+
+/* Header */
+.react-datepicker__header {
+    background-color: #132033 !important;
+    border-bottom: 1px solid #2e3b55 !important;
+}
+
+/* Day names (Su Mo Tu...) */
+.react-datepicker__day-name {
+    color: #9ca3af !important;
+}
+
+/* Month text */
+.react-datepicker__current-month {
+    color: white !important;
+}
+
+/* Days */
+.react-datepicker__day {
+    color: #e5e7eb !important;
+}
+
+/* Hover */
+.react-datepicker__day:hover {
+    background-color: #1c2a3f !important;
+}
+
+/* Selected day */
+.react-datepicker__day--selected {
+    background: linear-gradient(to right, #22c55e, #14b8a6) !important;
+    color: black !important;
+}
+
+/* Remove white triangle */
+.react-datepicker__triangle {
+    display: none !important;
+}

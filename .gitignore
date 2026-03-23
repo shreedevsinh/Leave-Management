@@ -1,0 +1,88 @@
+# =========================
+# Node Modules
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Build Outputs
+# =========================
+dist/
+build/
+.out/
+.next/
+coverage/
+
+# React (Vite / CRA)
+.vite/
+*.local
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs
+# =========================
+logs
+*.log
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# Prisma
+# =========================
+prisma/migrations/
+# (optional: keep migrations if you want version control)
+# !prisma/migrations/
+
+# Prisma generated client
+node_modules/.prisma/
+node_modules/@prisma/client/
+
+# =========================
+# NestJS
+# =========================
+dist/
+tmp/
+*.tsbuildinfo
+
+# =========================
+# Testing
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# Misc
+# =========================
+*.pem
+*.key
+
+# =========================
+# Docker (if used)
+# =========================
+docker-compose.override.yml

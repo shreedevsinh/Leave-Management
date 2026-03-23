@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB Tables for Leave Management System
+
+Resources:
+
+  # -------------------------------
+  # Users Table
+  # -------------------------------
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
+  # -------------------------------
+  # Leave Types Table
+  # -------------------------------
+  LeaveTypesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LeaveTypes
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: name
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: name-index
+          KeySchema:
+            - AttributeName: name
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
+  # -------------------------------
+  # Leaves Table
+  # -------------------------------
+  LeavesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Leaves
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
+  # -------------------------------
+  # Leave Balances Table
+  # -------------------------------
+  LeaveBalancesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LeaveBalances
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: year
+          AttributeType: N
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: user-year-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: year
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
+  # -------------------------------
+  # Leave Logs Table
+  # -------------------------------
+  LeaveLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LeaveLogs
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: leaveId
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: leaveId-index
+          KeySchema:
+            - AttributeName: leaveId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement

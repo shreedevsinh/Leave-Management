@@ -1,0 +1,444 @@
+import { useEffect, useState, useMemo } from "react";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+import { Users, CalendarDays, CheckCircle, XCircle } from "lucide-react";
+import Toast from "../../components/common/Toast";
+
+export default function AdminDashboard() {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [openId, setOpenId] = useState<number | null>(null);
+
+  const [filter, setFilter] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("startDate");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const token = Cookies.get("access_token");
+  if (!token) return null;
+
+  const decoded: any = jwtDecode(token);
+  const userId = decoded.sub;
+
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const fetchLeaves = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/leaves", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+
+      const formatted = data.map((leave: any) => ({
+        id: leave.id,
+        name: leave.user?.name || "Unknown",
+        type: leave.type?.name || "Unknown",
+        days: leave.totalDays,
+        status:
+          leave.status.charAt(0).toUpperCase() +
+          leave.status.slice(1).toLowerCase(),
+        startDate: formatDate(leave.startDate),
+        endDate: formatDate(leave.endDate),
+        rawStart: new Date(leave.startDate),
+      }));
+
+      setRequests(formatted);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/users/employees", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      setTotalEmployees(data.length);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaves();
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    const closeDropdown = () => setOpenId(null);
+    document.addEventListener("click", closeDropdown);
+    return () => document.removeEventListener("click", closeDropdown);
+  }, []);
+
+  const toggleDropdown = (id: number) => {
+    setOpenId((prev) => (prev === id ? null : id));
+  };
+
+  const [rejectModal, setRejectModal] = useState<{
+    open: boolean;
+    leaveId: number | null;
+  }>({ open: false, leaveId: null });
+
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const handleStatusChange = async (
+    id: number,
+    newStatus: string,
+    reason: string = ""
+  ) => {
+    await fetch(`http://localhost:3000/leaves/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: newStatus.toUpperCase(),
+        approvedBy: userId,
+        rejectionReason: reason,
+      }),
+    });
+
+    setRequests((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status: newStatus } : item
+      )
+    );
+
+    setToast({
+        message: `Leave ${newStatus.toLowerCase()} successfully`,
+        type: "success",
+      });
+
+    setRejectModal({ open: false, leaveId: null });
+
+    setOpenId(null);
+  };
+
+  const stats = [
+    {
+      label: "Total Employees",
+      value: totalEmployees,
+      icon: Users,
+      key: "ALL",
+    },
+    {
+      label: "Pending Requests",
+      value: requests
+        .filter((r) => r.status === "Pending")
+        .reduce((sum, r) => sum + r.days, 0),
+      icon: CalendarDays,
+      key: "Pending",
+    },
+    {
+      label: "Approved Leaves",
+      value: requests
+        .filter((r) => r.status === "Approved")
+        .reduce((sum, r) => sum + r.days, 0),
+      icon: CheckCircle,
+      key: "Approved",
+    },
+    {
+      label: "Rejected",
+      value: requests
+        .filter((r) => r.status === "Rejected")
+        .reduce((sum, r) => sum + r.days, 0),
+      icon: XCircle,
+      key: "Rejected",
+    },
+  ];
+
+  const filteredRequests = useMemo(() => {
+    let data = [...requests];
+
+    if (filter !== "ALL") {
+      data = data.filter((r) => r.status === filter);
+    }
+
+    if (search) {
+      data = data.filter(
+        (r) =>
+          r.name.toLowerCase().includes(search.toLowerCase()) ||
+          r.type.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    data.sort((a, b) => {
+      if (sortKey === "days") {
+        return sortOrder === "asc" ? a.days - b.days : b.days - a.days;
+      }
+      return sortOrder === "asc"
+        ? a.rawStart - b.rawStart
+        : b.rawStart - a.rawStart;
+    });
+
+    return data;
+  }, [requests, filter, search, sortKey, sortOrder]);
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  return (
+    <div className="space-y-6 p-3">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+          Dashboard Overview
+        </h1>
+        <p className="text-gray-400 text-sm">
+          Monitor employee leave activity and requests
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {stats.map((item, i) => {
+          const Icon = item.icon;
+          return (
+            <div
+              key={i}
+              onClick={() =>
+                setFilter((prev) =>
+                  prev === item.key ? "ALL" : item.key
+                )
+              }
+              className={`bg-[#13263f]/80 p-4 rounded-2xl border border-white/10 cursor-pointer transition
+                ${filter === item.key
+                  ? "ring-2 ring-green-400"
+                  : "hover:bg-[#1b3654]"
+                }`}
+            >
+              <div className="flex justify-between mb-2">
+                <p className="text-gray-400 text-sm">{item.label}</p>
+                <Icon size={18} className="text-green-400" />
+              </div>
+              <h3 className="text-white font-bold text-xl">
+                {item.value}
+              </h3>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#13263f]/80 p-5 rounded-2xl border border-white/10">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mb-4">
+          <h2 className="text-white font-semibold">
+            Recent Leave Requests
+          </h2>
+
+          <input
+            type="text"
+            placeholder="Search employee or type..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-[#1f2937] text-sm px-3 py-2 rounded-lg border border-white/10 outline-none text-white"
+          />
+        </div>
+
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-gray-400 border-b border-white/10">
+              <th className="py-3 text-left">Employee</th>
+              <th className="text-left">Type</th>
+              <th
+                className="text-left cursor-pointer"
+                onClick={() => toggleSort("days")}
+              >
+                Days
+              </th>
+              <th className="text-left">Status</th>
+              <th
+                className="text-left cursor-pointer"
+                onClick={() => toggleSort("startDate")}
+              >
+                Start
+              </th>
+              <th className="text-left">End</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filteredRequests.slice(0, 10).map((r) => (
+              <tr key={r.id} className="border-b border-white/5">
+                <td className="text-white py-3">
+                  {r.name}
+                </td>
+                <td className="text-gray-300">{r.type}</td>
+                <td className="text-gray-300">{r.days}</td>
+
+                <td className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleDropdown(r.id);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs flex items-center gap-2 font-medium min-w-[110px] justify-between
+                      ${r.status === "Approved"
+                        ? "text-green-400 bg-green-400/20"
+                        : r.status === "Rejected"
+                          ? "text-red-400 bg-red-400/20"
+                          : "text-yellow-400 bg-yellow-400/20"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full
+                          ${r.status === "Approved"
+                            ? "bg-green-400"
+                            : r.status === "Rejected"
+                              ? "bg-red-400"
+                              : "bg-yellow-400"
+                          }`}
+                      />
+                      {r.status}
+                    </div>
+                    <span className="text-[10px]">▼</span>
+                  </button>
+
+                  {openId === r.id && (
+                    <div className="absolute left-0 mt-2 w-40 bg-[#1f2937] border border-white/10 rounded-xl shadow-lg z-20 overflow-hidden">
+                      {["Pending", "Approved", "Rejected"].map((status) => (
+                        <div
+                          key={status}
+                          onClick={() => {
+                            if (status === "Rejected") {
+                              setRejectModal({ open: true, leaveId: r.id });
+                              setOpenId(null);
+                            } else {
+                              handleStatusChange(r.id, status);
+                            }
+                          }}
+                          className={`px-4 py-2 text-sm flex items-center justify-between cursor-pointer transition
+                            hover:bg-white/10
+                            ${r.status === status ? "opacity-50 pointer-events-none" : ""}
+                          `}
+                        >
+                          {/* Left: Status with indicator */}
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full
+                                ${status === "Approved"
+                                  ? "bg-green-400"
+                                  : status === "Rejected"
+                                    ? "bg-red-400"
+                                    : "bg-yellow-400"
+                                }`}
+                            />
+
+                            <span
+                              className={`${status === "Approved"
+                                ? "text-green-400"
+                                : status === "Rejected"
+                                  ? "text-red-400"
+                                  : "text-yellow-400"
+                                }`}
+                            >
+                              {status}
+                            </span>
+                          </div>
+
+                          {/* Right: Checkmark */}
+                          {r.status === status && (
+                            <span className="text-white text-xs">✓</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+
+                <td className="text-gray-300">{r.startDate}</td>
+                <td className="text-gray-300">{r.endDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rejectModal.open && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#13263f] w-[380px] rounded-2xl border border-white/10 shadow-xl p-6">
+
+            {/* Header */}
+            <div className="mb-4">
+              <h3 className="text-white text-lg font-semibold">
+                Reject Leave Request
+              </h3>
+              <p className="text-gray-400 text-xs mt-1">
+                Please provide a reason for rejecting this leave request.
+              </p>
+            </div>
+
+            {/* Input */}
+            <div className="mb-4">
+              <textarea
+                placeholder="Type your reason here..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full h-24 bg-[#1f2937] text-white p-3 rounded-xl border border-white/10 outline-none text-sm resize-none focus:ring-1 focus:ring-red-400"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setRejectModal({ open: false, leaveId: null });
+                  setRejectionReason("");
+                }}
+                className="px-4 py-2 text-sm rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!rejectionReason.trim()) return;
+
+                  handleStatusChange(
+                    rejectModal.leaveId!,
+                    "Rejected",
+                    rejectionReason
+                  );
+
+                  setRejectModal({ open: false, leaveId: null });
+                  setRejectionReason("");
+                }}
+                className={`px-4 py-2 text-sm rounded-lg text-white transition
+            ${rejectionReason.trim()
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-red-500/50 cursor-not-allowed"
+                  }`}
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </div>
+  );
+}
