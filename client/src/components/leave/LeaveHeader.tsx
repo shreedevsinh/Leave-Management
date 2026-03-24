@@ -9,7 +9,7 @@ type Props = {
     onOpenCreateLeave: () => void;
 };
 
-export default function LeaveHeader({ currentMonth, currentYear, onChange , onOpenLeaveTypes, onOpenCreateLeave }: Props) {
+export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpenLeaveTypes, onOpenCreateLeave }: Props) {
 
 
     return (
@@ -52,13 +52,6 @@ export default function LeaveHeader({ currentMonth, currentYear, onChange , onOp
                     <span className="relative z-10">Leave Types</span>
                     <span className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition rounded-xl"></span>
                 </button>
-
-                {/* <button
-                    onClick={onOpenCreateLeave}
-                    className="button-gradient">
-                    <span className="relative z-10">+ Create Leave</span>
-                    <span className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition rounded-xl"></span>
-                </button> */}
             </div>
         </div>
     );

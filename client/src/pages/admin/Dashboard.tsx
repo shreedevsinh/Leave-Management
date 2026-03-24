@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { Users, CalendarDays, CheckCircle, XCircle } from "lucide-react";
 import Toast from "../../components/common/Toast";
+import { is } from "date-fns/locale";
 
 export default function AdminDashboard() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -13,6 +15,9 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("startDate");
   const [sortOrder, setSortOrder] = useState("desc");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [toast, setToast] = useState<{
     message: string;
@@ -44,6 +49,7 @@ export default function AdminDashboard() {
         id: leave.id,
         name: leave.user?.name || "Unknown",
         type: leave.type?.name || "Unknown",
+        isPaid: leave.type?.isPaid,
         days: leave.totalDays,
         status:
           leave.status.charAt(0).toUpperCase() +
@@ -53,6 +59,7 @@ export default function AdminDashboard() {
         rawStart: new Date(leave.startDate),
       }));
 
+      console.log(formatted);
       setRequests(formatted);
     } catch (err) {
       console.error(err);
@@ -116,9 +123,9 @@ export default function AdminDashboard() {
     );
 
     setToast({
-        message: `Leave ${newStatus.toLowerCase()} successfully`,
-        type: "success",
-      });
+      message: `Leave ${newStatus.toLowerCase()} successfully`,
+      type: "success",
+    });
 
     setRejectModal({ open: false, leaveId: null });
 
@@ -185,6 +192,17 @@ export default function AdminDashboard() {
     return data;
   }, [requests, filter, search, sortKey, sortOrder]);
 
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+
+  const paginatedData = filteredRequests.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, search]);
+
   const toggleSort = (key: string) => {
     if (sortKey === key) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -235,9 +253,10 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* Table */}
       <div className="bg-[#13263f]/80 p-5 rounded-2xl border border-white/10">
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mb-4">
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-white font-semibold">
             Recent Leave Requests
           </h2>
@@ -247,128 +266,195 @@ export default function AdminDashboard() {
             placeholder="Search employee or type..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-[#1f2937] text-sm px-3 py-2 rounded-lg border border-white/10 outline-none text-white"
+            className="bg-[#1f2937] text-sm px-3 py-2 rounded-lg border border-white/10 outline-none text-white w-full sm:w-64"
           />
         </div>
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-gray-400 border-b border-white/10">
-              <th className="py-3 text-left">Employee</th>
-              <th className="text-left">Type</th>
-              <th
-                className="text-left cursor-pointer"
-                onClick={() => toggleSort("days")}
-              >
-                Days
-              </th>
-              <th className="text-left">Status</th>
-              <th
-                className="text-left cursor-pointer"
-                onClick={() => toggleSort("startDate")}
-              >
-                Start
-              </th>
-              <th className="text-left">End</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredRequests.slice(0, 10).map((r) => (
-              <tr key={r.id} className="border-b border-white/5">
-                <td className="text-white py-3">
-                  {r.name}
-                </td>
-                <td className="text-gray-300">{r.type}</td>
-                <td className="text-gray-300">{r.days}</td>
-
-                <td className="relative">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleDropdown(r.id);
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs flex items-center gap-2 font-medium min-w-[110px] justify-between
-                      ${r.status === "Approved"
-                        ? "text-green-400 bg-green-400/20"
-                        : r.status === "Rejected"
-                          ? "text-red-400 bg-red-400/20"
-                          : "text-yellow-400 bg-yellow-400/20"
-                      }`}
+        {/* Table Wrapper (important for responsiveness) */}
+        <div className="overflow-x-auto">
+          <div className="min-h-[500px] overflow-y-auto rounded-xl">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className="text-gray-400 border-b border-white/10">
+                  <th className="py-3 text-left">Employee</th>
+                  <th className="text-left">Type</th>
+                  <th
+                    className="text-left cursor-pointer"
+                    onClick={() => toggleSort("days")}
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-2 h-2 rounded-full
-                          ${r.status === "Approved"
-                            ? "bg-green-400"
-                            : r.status === "Rejected"
-                              ? "bg-red-400"
-                              : "bg-yellow-400"
-                          }`}
-                      />
-                      {r.status}
-                    </div>
-                    <span className="text-[10px]">▼</span>
-                  </button>
+                    Days
+                  </th>
+                  <th className="text-left">Status</th>
+                  <th
+                    className="text-left cursor-pointer"
+                    onClick={() => toggleSort("startDate")}
+                  >
+                    Start
+                  </th>
+                  <th className="text-left">End</th>
+                </tr>
+              </thead>
 
-                  {openId === r.id && (
-                    <div className="absolute left-0 mt-2 w-40 bg-[#1f2937] border border-white/10 rounded-xl shadow-lg z-20 overflow-hidden">
-                      {["Pending", "Approved", "Rejected"].map((status) => (
-                        <div
-                          key={status}
-                          onClick={() => {
-                            if (status === "Rejected") {
-                              setRejectModal({ open: true, leaveId: r.id });
-                              setOpenId(null);
-                            } else {
-                              handleStatusChange(r.id, status);
-                            }
-                          }}
-                          className={`px-4 py-2 text-sm flex items-center justify-between cursor-pointer transition
-                            hover:bg-white/10
-                            ${r.status === status ? "opacity-50 pointer-events-none" : ""}
-                          `}
+              <tbody>
+                {paginatedData.map((r) => (
+                  <tr
+                    key={r.id}
+                    className="border-b border-white/5 hover:bg-white/5 transition"
+                  >
+                    <td className="text-white py-3">{r.name}</td>
+                    <td className="text-gray-300">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-1 py-1 rounded-md text-xs ${r.isPaid
+                              ? "bg-green-500/80 text-green-400"
+                              : "bg-red-500/80 text-red-400"
+                            }`}
                         >
-                          {/* Left: Status with indicator */}
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-2 h-2 rounded-full
-                                ${status === "Approved"
-                                  ? "bg-green-400"
-                                  : status === "Rejected"
-                                    ? "bg-red-400"
-                                    : "bg-yellow-400"
-                                }`}
-                            />
+                        </span>
+                          {r.type}
+                        {/* <span className="px-2 py-1 rounded-md bg-blue-500/20 text-blue-400 text-xs">
+                        </span> */}
 
-                            <span
-                              className={`${status === "Approved"
-                                ? "text-green-400"
-                                : status === "Rejected"
-                                  ? "text-red-400"
-                                  : "text-yellow-400"
+                      </div>
+                    </td>
+                    <td className="text-gray-300">{r.days}</td>
+
+                    <td className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDropdown(r.id);
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs flex items-center gap-2 font-medium min-w-[110px] justify-between
+                    ${r.status === "Approved"
+                            ? "text-green-400 bg-green-400/20"
+                            : r.status === "Rejected"
+                              ? "text-red-400 bg-red-400/20"
+                              : "text-yellow-400 bg-yellow-400/20"
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full
+                        ${r.status === "Approved"
+                                ? "bg-green-400"
+                                : r.status === "Rejected"
+                                  ? "bg-red-400"
+                                  : "bg-yellow-400"
+                              }`}
+                          />
+                          {r.status}
+                        </div>
+                        <span className="text-[10px]">▼</span>
+                      </button>
+
+                      {openId === r.id && (
+                        <div className="absolute left-0 mt-2 w-40 bg-[#1f2937] border border-white/10 rounded-xl shadow-lg z-20 overflow-hidden">
+                          {["Pending", "Approved", "Rejected"].map((status) => (
+                            <div
+                              key={status}
+                              onClick={() => {
+                                if (status === "Rejected") {
+                                  setRejectModal({ open: true, leaveId: r.id });
+                                  setOpenId(null);
+                                } else {
+                                  handleStatusChange(r.id, status);
+                                }
+                              }}
+                              className={`px-4 py-2 text-sm flex items-center justify-between cursor-pointer transition
+                          hover:bg-white/10
+                          ${r.status === status
+                                  ? "opacity-50 pointer-events-none"
+                                  : ""
                                 }`}
                             >
-                              {status}
-                            </span>
-                          </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`w-2 h-2 rounded-full
+                              ${status === "Approved"
+                                      ? "bg-green-400"
+                                      : status === "Rejected"
+                                        ? "bg-red-400"
+                                        : "bg-yellow-400"
+                                    }`}
+                                />
+                                <span
+                                  className={`${status === "Approved"
+                                    ? "text-green-400"
+                                    : status === "Rejected"
+                                      ? "text-red-400"
+                                      : "text-yellow-400"
+                                    }`}
+                                >
+                                  {status}
+                                </span>
+                              </div>
 
-                          {/* Right: Checkmark */}
-                          {r.status === status && (
-                            <span className="text-white text-xs">✓</span>
-                          )}
+                              {r.status === status && (
+                                <span className="text-white text-xs">✓</span>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
+                      )}
+                    </td>
 
-                <td className="text-gray-300">{r.startDate}</td>
-                <td className="text-gray-300">{r.endDate}</td>
-              </tr>
+                    <td className="text-gray-300">{r.startDate}</td>
+                    <td className="text-gray-300">{r.endDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+
+          {/* Showing text */}
+          <p className="text-xs text-gray-400">
+            Showing {(currentPage - 1) * itemsPerPage + 1}–
+            {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of{" "}
+            {filteredRequests.length}
+          </p>
+
+          {/* Pagination */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="w-9 h-9 flex items-center justify-center rounded-full
+                bg-gradient-to-r from-green-400 to-teal-400
+                shadow active:scale-95 transition">
+              <ChevronLeft size={20} className="text-white" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition
+            ${currentPage === page
+                    ? "button-gradient"
+                    : "text-gray-400 hover:bg-white/10"
+                  }`}
+              >
+                {page}
+              </button>
             ))}
-          </tbody>
-        </table>
+
+            <button
+              onClick={() =>
+                setCurrentPage((p) => Math.min(p + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              className="w-9 h-9 flex items-center justify-center rounded-full
+                bg-gradient-to-r from-teal-400 to-green-400
+                shadow active:scale-95 transition">
+              <ChevronRight size={20} className="text-white" />
+            </button>
+          </div>
+        </div>
       </div>
       {rejectModal.open && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
