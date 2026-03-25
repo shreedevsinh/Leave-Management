@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Briefcase } from "lucide-react";
+import { Calendar, FileText, Briefcase, User, NotebookPen  } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import DatePicker from "react-datepicker";
@@ -18,44 +18,82 @@ interface LeaveType {
 }
 
 export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
-    const [form, setForm] = useState({
-        typeId: "",
-        reason: "",
-        totalDays: 0,
-    });
-
-    const [errors, setErrors] = useState<any>({});
-
     const token = Cookies.get("access_token");
     if (!token) return null;
 
     const decoded: any = jwtDecode(token);
+    const role = decoded.role;
+
+    // if (role !== "EMPLOYEE") return null;
     const userId = decoded.sub;
+
+    const [form, setForm] = useState({
+        userId: "",
+        startDate: "",
+        endDate: "",
+        typeId: "",
+        reason: "",
+        totalDays: 0,
+        status: "",
+    });
+
+    const [errors, setErrors] = useState<any>({});
 
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
     const [error, setError] = useState("");
+    const [openUser, setOpenUser] = useState(false);
     const [openType, setOpenType] = useState(false);
+    const [openStatus, setOpenStatus] = useState(false);
 
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+    const [employees, setEmployees] = useState<LeaveType[]>([]);
     const [loadingTypes, setLoadingTypes] = useState(false);
+
+    type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+    const statusTypes: LeaveStatus[] = ["PENDING", "APPROVED", "REJECTED"];
+
+    const getStatusColor = (status: LeaveStatus) => {
+        switch (status) {
+            case "APPROVED": return "text-green-400";
+            case "REJECTED": return "text-red-400";
+            default: return "text-yellow-400";
+        }
+    };
 
     // Fetch Leave Types
     useEffect(() => {
+        if (!userId) return;
+
+        let isMounted = true;
         const fetchLeaveTypes = async () => {
             try {
                 setLoadingTypes(true);
 
                 const res = await fetch("http://localhost:3000/leave-types");
+
+                if (!res.ok) {
+                    throw new Error("Failed to fetch leave types");
+                }
+
                 const data = await res.json();
 
                 const leaveTypesData = data.leaveTypes || data;
 
+                const effectiveUserId =
+                    role === "ADMIN" && form.userId ? form.userId : userId;
+
+                console.log(effectiveUserId);
+
+
                 const filtered = leaveTypesData.map((leaveType: any) => {
                     const userBalance = leaveType.balances?.find(
-                        (b: any) => b.userId === userId
+                        (b: any) => b.userId == effectiveUserId
                     );
+
+                    console.log(userBalance);
 
                     const { balances, ...rest } = leaveType;
 
@@ -64,6 +102,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         balance: userBalance || null,
                     };
                 });
+                console.log(filtered);
 
                 setLeaveTypes(filtered);
             } catch (err) {
@@ -74,6 +113,26 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
         };
 
         fetchLeaveTypes();
+    }, [userId, role, form.userId]);
+
+    // Fetch Employees
+    useEffect(() => {
+        const fetchEmployees = async () => {
+            try {
+                setLoadingTypes(true);
+
+                const res = await fetch("http://localhost:3000/users/employees");
+                const data = await res.json();
+
+                setEmployees(data);
+            } catch (err) {
+                console.error("❌ Failed to fetch employees", err);
+            } finally {
+                setLoadingTypes(false);
+            }
+        };
+
+        fetchEmployees();
     }, []);
 
     // Auto calculate total days
@@ -93,6 +152,12 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
 
     const validate = () => {
         let newErrors: any = {};
+
+        if (role === "ADMIN") {
+            if (!form.userId) newErrors.userId = "User is required";
+        } else {
+            form.userId = userId
+        }
 
         if (!form.typeId) newErrors.typeId = "Leave type is required";
 
@@ -126,6 +191,8 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             typeId: Number(form.typeId),
             startDate,
             endDate,
+            userId: Number(form.userId),
+            status: form.status,
         });
 
         handleClose();
@@ -134,13 +201,18 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
     const handleClose = () => {
         onClose();
         setErrors({});
+        setOpenUser(false);
         setOpenType(false);
         setStartDate(null);
         setEndDate(null);
         setForm({
+            userId: "",
+            startDate: "",
+            endDate: "",
             typeId: "",
             reason: "",
             totalDays: 0,
+            status: "PENDING",
         });
     };
 
@@ -161,6 +233,51 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* User Selection */}
+                    {role === "ADMIN" && (
+                        <div className="relative">
+                            <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <div
+                                onClick={() => setOpenUser(!openUser)}
+                                className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] cursor-pointer flex justify-between items-center hover:border-green-400"
+                            >
+                                <span className={form.userId ? "text-white" : "text-gray-400"}>
+                                    {
+                                        employees.find(e => e.id.toString() === form.userId)?.name ||
+                                        (loadingTypes ? "Loading..." : "Select Employee")
+                                    }
+                                </span>
+                                <span className="text-gray-400">▼</span>
+                            </div>
+                            {openUser && (
+                                <div className="absolute w-full mt-2 bg-[#132033] border border-[#2e3b55] rounded-xl shadow-lg overflow-hidden z-50">
+                                    {employees.map((employee) => (
+                                        <div
+                                            key={employee.id}
+                                            onClick={() => {
+                                                setForm({ ...form, userId: employee.id.toString() });
+                                                setOpenUser(false);
+                                            }}
+                                            className="px-4 py-3 hover:bg-[#1c2a3f] cursor-pointer flex items-center justify-between"
+                                        >
+                                            {/* Left: Leave Name */}
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-medium">
+                                                    {employee.name}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {!loadingTypes && leaveTypes.length === 0 && (
+                                        <div className="px-4 py-2 text-gray-400 text-sm">
+                                            No leave types found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Leave Type */}
                     <div className="relative">
@@ -267,6 +384,45 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         Total: {form.totalDays} day(s)
                         {errors.totalDays && <p className="text-red-400 text-xs">{errors.totalDays}</p>}
                     </div>
+
+                    {/* Status */}
+                    {role === "ADMIN" && (
+                        <div className="relative">
+                            <NotebookPen className="absolute left-3 top-3 text-gray-400" size={18} />
+
+                            <div
+                                onClick={() => setOpenStatus((prev) => !prev)}
+                                className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] cursor-pointer flex justify-between items-center hover:border-green-400"
+                            >
+                                <span className={`font-medium ${getStatusColor(form.status)}`}>
+                                    {form.status || "Select Status"}
+                                </span>
+                                <span className="text-gray-400">▼</span>
+                            </div>
+
+                            {openStatus && (
+                                <div className="absolute w-full mt-2 bg-[#132033] border border-[#2e3b55] rounded-xl shadow-lg overflow-hidden z-50">
+                                    {statusTypes.map((status) => (
+                                        <div
+                                            key={status}
+                                            onClick={() => {
+                                                setForm((prev) => ({
+                                                    ...prev,
+                                                    status,
+                                                }));
+                                                setOpenStatus(false);
+                                            }}
+                                            className="px-4 py-3 hover:bg-[#1c2a3f] cursor-pointer"
+                                        >
+                                            <span className="text-white font-medium">
+                                                {status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Reason */}
                     <div className="relative">

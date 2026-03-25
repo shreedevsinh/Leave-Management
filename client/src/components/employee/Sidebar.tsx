@@ -10,15 +10,16 @@ import { Link, useLocation } from "react-router-dom";
 interface Props {
   open: boolean;
   setOpen: (val: boolean) => void;
+  userName?: string;
 }
 
-export default function EmployeeSidebar({ open, setOpen }: Props) {
+export default function EmployeeSidebar({ open, setOpen, userName }: Props) {
   const location = useLocation();
 
   const menu = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/employee/dashboard" },
     { name: "My Leaves", icon: CalendarDays, path: "/employee/leaves" },
-    { name: "Reports", icon: FileText, path: "/employee/reports" },
+    // { name: "Reports", icon: FileText, path: "/employee/reports" },
     { name: "Profile", icon: User, path: "/employee/profile" },
   ];
 
@@ -46,10 +47,10 @@ export default function EmployeeSidebar({ open, setOpen }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-400 flex items-center justify-center font-bold">
-              E
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center font-bold text-black text-[20px]">
+              {userName?.charAt(0).toUpperCase()}
             </div>
-            <h1 className="text-lg font-semibold">Employee</h1>
+            <h1 className="text-lg font-semibold">{userName}</h1>
           </div>
 
           <button className="md:hidden" onClick={() => setOpen(false)}>
@@ -69,11 +70,10 @@ export default function EmployeeSidebar({ open, setOpen }: Props) {
                 to={item.path}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors
-                ${
-                  isActive
+                ${isActive
                     ? "bg-blue-400/10 text-blue-400"
                     : "text-gray-300 hover:bg-white/5 hover:text-white"
-                }`}
+                  }`}
               >
                 <Icon size={18} />
                 <span className="text-sm">{item.name}</span>
