@@ -171,6 +171,60 @@ export class UsersService {
     }
   }
 
+  async updateUserNameEmail(id: number, data: UpdateUserDto) {
+    try {
+      if (data.email || data.mobile) {
+        const orConditions: any[] = [
+          data.email ? { email: data.email } : undefined,
+          data.mobile ? { mobile: data.mobile } : undefined,
+        ].filter(Boolean) as { email?: string; mobile?: string }[];
+
+        const existingUser = await this.prisma.user.findFirst({
+          where: {
+            OR: orConditions.length > 0 ? orConditions : undefined,
+            NOT: { id },
+          },
+        });
+
+        if (existingUser)
+          throw new ConflictException('Email or mobile already exists');
+      }
+
+      let hashedPassword;
+      if (data.password) hashedPassword = await bcrypt.hash(data.password, 10);
+
+      const updatedUser = await this.prisma.user.update({
+        where: { id },
+        data: {
+          name: data.name,
+          email: data.email,
+          mobile: data.mobile,
+          password: hashedPassword,
+        },
+      });
+
+      await this.dynamo.getClient().send(
+        new PutCommand({
+          TableName: 'Users',
+          Item: {
+            id: updatedUser.id.toString(),
+            name: updatedUser.name,
+            email: updatedUser.email,
+            mobile: updatedUser.mobile,
+            password: updatedUser.password,
+            updatedAt: updatedUser.updatedAt.toISOString(),
+          },
+        }),
+      );
+
+      const { password, ...safeUser } = updatedUser;
+      return { user: safeUser };
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      throw new InternalServerErrorException('Failed to update user');
+    }
+  }
+
   async findByEmail(email: string) {
     try {
       return this.prisma.user.findUnique({ where: { email } });
@@ -184,6 +238,17 @@ export class UsersService {
       return this.prisma.user.findMany({ where: { role: 'EMPLOYEE' } });
     } catch {
       throw new InternalServerErrorException('Failed to get employees');
+    }
+  }
+
+  async getEmployee(id: string) {
+    try {
+      return this.prisma.user.findUnique({
+        where: { id: Number(id) },
+        include: { leaves: true },
+      });
+    } catch {
+      throw new InternalServerErrorException('Failed to get employee');
     }
   }
 

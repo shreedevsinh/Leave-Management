@@ -10,16 +10,18 @@ import { Link, useLocation } from "react-router-dom";
 interface Props {
   open: boolean;
   setOpen: (val: boolean) => void;
+  userName?: string;
+
 }
 
-export default function Sidebar({ open, setOpen }: Props) {
+export default function Sidebar({ open, setOpen, userName }: Props) {
   const location = useLocation();
 
   const menu = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
     { name: "Employees", icon: Users, path: "/admin/employees" },
     { name: "Leaves", icon: CalendarDays, path: "/admin/leaves" },
-    { name: "Reports", icon: FileText, path: "/admin/reports" },
+    // { name: "Reports", icon: FileText, path: "/admin/reports" },
   ];
 
   const isActiveRoute = (path: string) => {
@@ -47,8 +49,8 @@ export default function Sidebar({ open, setOpen }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center font-bold">
-              A
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center font-bold text-black text-[20px]">
+              {userName?.charAt(0).toUpperCase()}
             </div>
             <h1 className="text-lg font-semibold">Admin</h1>
           </div>
@@ -70,11 +72,10 @@ export default function Sidebar({ open, setOpen }: Props) {
                 to={item.path}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors
-                ${
-                  isActive
+                ${isActive
                     ? "bg-green-400/10 text-green-400"
                     : "text-gray-300 hover:bg-white/5 hover:text-white"
-                }`}
+                  }`}
               >
                 <Icon size={18} />
                 <span className="text-sm">{item.name}</span>

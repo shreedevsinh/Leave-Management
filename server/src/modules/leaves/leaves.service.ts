@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { CreateLeaveDto } from './dto/create-leave.dto';
-import { Prisma, Leave } from '@prisma/client';
+import { Prisma, Leave, LeaveType } from '@prisma/client';
 
 @Injectable()
 export class LeavesService {
@@ -14,8 +14,15 @@ export class LeavesService {
 
   // ✅ Utility: calculate days
   private calculateDays(start: Date, end: Date): number {
-    const diff = end.getTime() - start.getTime();
-    return diff / (1000 * 60 * 60 * 24) + 1;
+    const s = new Date(start);
+    const e = new Date(end);
+
+    s.setHours(0, 0, 0, 0);
+    e.setHours(0, 0, 0, 0);
+
+    const diff = e.getTime() - s.getTime();
+
+    return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
   }
 
   // ✅ Split leave by year
@@ -107,36 +114,50 @@ export class LeavesService {
 
   // ✅ Create Leave
   async createLeave(data: CreateLeaveDto): Promise<Leave[]> {
-    const { userId, typeId, startDate, endDate, reason } = data;
+    console.log('📥 Incoming createLeave request:', data);
+
+    const { userId, typeId, startDate, endDate, reason, status } = data;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    console.log('📅 Parsed Dates:', { start, end });
+
     if (end < start) {
+      console.error('❌ Invalid date range');
       throw new BadRequestException('End date cannot be before start date');
     }
 
     const segments = this.splitLeaveByYear(start, end);
+    console.log('🧩 Split Segments:', segments);
 
     const leaves = await this.prisma.$transaction(async (tx) => {
+      console.log('🔄 Transaction started');
+
       // ✅ Prevent overlapping leave
       const overlap = await tx.leave.findFirst({
         where: {
-          userId,
+          userId: Number(userId),
           status: { in: ['PENDING', 'APPROVED'] },
           startDate: { lte: end },
           endDate: { gte: start },
         },
       });
 
+      console.log('🔍 Overlap check result:', overlap);
+
       if (overlap) {
+        console.error('❌ Overlapping leave detected');
         throw new BadRequestException('Leave already exists');
       }
 
       const createdLeaves: Leave[] = [];
 
       for (const segment of segments) {
+        console.log('➡️ Processing segment:', segment);
+
         const days = this.calculateDays(segment.start, segment.end);
+        console.log('📊 Calculated days:', days);
 
         const splits = await this.resolveLeaveSplit(
           tx,
@@ -146,7 +167,11 @@ export class LeavesService {
           days,
         );
 
+        console.log('🔀 Leave splits:', splits);
+
         for (const split of splits) {
+          console.log('🧾 Creating leave with split:', split);
+
           const leave = await tx.leave.create({
             data: {
               userId,
@@ -159,20 +184,29 @@ export class LeavesService {
             },
           });
 
+          console.log('✅ Leave created:', leave);
+
           createdLeaves.push(leave);
         }
       }
 
+      console.log('✅ Transaction completed');
       return createdLeaves;
     });
 
+    console.log('📦 Leaves after transaction:', leaves);
+
     // ✅ Dynamo Sync (non-blocking)
     try {
+      console.log('☁️ Starting DynamoDB sync');
+
       const dynamoClient = this.dynamo.getClient();
 
       await Promise.all(
-        leaves.map((leave) =>
-          dynamoClient.send(
+        leaves.map((leave) => {
+          console.log('📤 Syncing leave to Dynamo:', leave.id);
+
+          return dynamoClient.send(
             new PutCommand({
               TableName: 'Leaves',
               Item: {
@@ -188,13 +222,29 @@ export class LeavesService {
                 updatedAt: leave.updatedAt.toISOString(),
               },
             }),
-          ),
-        ),
+          );
+        }),
       );
+
+      console.log('✅ DynamoDB sync completed');
     } catch (error) {
       console.error('❌ DynamoDB Sync Failed:', error);
     }
 
+    if (status === 'APPROVED') {
+      for (const leave of leaves) {
+        console.log('⚡ Auto-approving leave:', leave.id);
+
+        await this.updateLeaveStatus(leave.id, {
+          status: 'APPROVED',
+          approvedBy: userId,
+        });
+
+        console.log('✅ Leave approved:', leave.id);
+      }
+    }
+
+    console.log('🎉 createLeave completed successfully');
     return leaves;
   }
 

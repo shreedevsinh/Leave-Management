@@ -16,10 +16,20 @@ export class UsersController {
   async updateUser(@Param('id') id: string, @Body() body: UpdateUserDto) {
     return this.usersService.updateUser(Number(id), body);
   }
+  
+  @Put('user/:id')
+  async updateUserNameEmail(@Param('id') id: string, @Body() body: UpdateUserDto) {
+    return this.usersService.updateUserNameEmail(Number(id), body);
+  }
 
   @Get('/employees/')
   async getEmployees() {
     return this.usersService.getEmployees();
+  }
+
+  @Get('/employee/:id')
+  async getEmployee(@Param('id') id: string) {
+    return this.usersService.getEmployee(id);
   }
 
   @Delete('/:id')

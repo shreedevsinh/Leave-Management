@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 
 // Employee Pages (create these)
 import EmployeeDashboard from "./pages/employee/Dashboard";
+import Profile from "./pages/employee/Profile";
 // import EmployeeLeaves from "./pages/employee/Leaves";
 // import Profile from "./pages/employee/Profile";
 
@@ -39,6 +40,7 @@ function App() {
           <Route path="employees" element={<Employee />} />
           <Route path="leaves" element={<Leave />} />
           <Route path="reports" element={<div>Reports Page</div>} />
+          <Route path="profile" element={<Profile />} />
         </Route>
 
         {/* ================= EMPLOYEE ================= */}
@@ -55,7 +57,7 @@ function App() {
 
           <Route path="dashboard" element={<EmployeeDashboard />} />
           <Route path="leaves" element={<Leave />} />
-          <Route path="profile" element={<div>Employee Reports</div>} />
+          <Route path="profile" element={<Profile />} />
           <Route path="reports" element={<div>Employee Reports</div>} />
         </Route>
 
