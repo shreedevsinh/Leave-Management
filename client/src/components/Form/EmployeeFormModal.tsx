@@ -4,7 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { User, Mail, Lock, Briefcase, Eye, EyeOff } from "lucide-react";
 
 interface EmployeeFormData {
-    id?: number;
+    id?: string;
     name: string;
     email: string;
     role: string;

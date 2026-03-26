@@ -27,7 +27,7 @@ enum LeaveAction {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id
   name      String
   email     String   @unique
   mobile    String   @default("")
@@ -46,9 +46,9 @@ model User {
 }
 
 model Leave {
-  id          Int          @id @default(autoincrement())
-  userId      Int
-  typeId      Int
+  id          String      @id
+  userId      String
+  typeId      String
   status      LeaveStatus  @default(PENDING)
 
   startDate   DateTime
@@ -59,7 +59,7 @@ model Leave {
 
   appliedAt   DateTime     @default(now())
 
-  approvedBy  Int?         
+  approvedBy  String?         
   rejectionReason String?
 
   user        User         @relation(fields: [userId], references: [id])
@@ -72,7 +72,7 @@ model Leave {
 }
 
 model LeaveType {
-  id          Int      @id @default(autoincrement())
+  id          String   @id
   name        String   @unique
   maxPerYear  Int
   isPaid      Boolean  @default(true)
@@ -82,9 +82,9 @@ model LeaveType {
 }
 
 model LeaveBalance {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  typeId    Int
+  id        String   @id
+  userId    String
+  typeId    String
 
   total     Float
   used      Float    @default(0)
@@ -99,13 +99,13 @@ model LeaveBalance {
 }
 
 model LeaveLog {
-  id          Int          @id @default(autoincrement())
-  leaveId     Int
+  id          String        @id
+  leaveId     String
   action      LeaveAction
   performedBy Int
   note        String?
 
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
 
-  leave       Leave @relation(fields: [leaveId], references: [id])
+  leave       Leave         @relation(fields: [leaveId], references: [id])
 }

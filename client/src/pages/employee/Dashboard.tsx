@@ -43,9 +43,10 @@ export default function EmployeeDashboard() {
       });
 
       const data = await res.json();
-
+      console.log(data, "data");
+      
       const formatted = data
-        .filter((leave: any) => leave.userId === userId)
+        .filter((leave: any) => leave.user.id == userId)
         .map((leave: any) => ({
           id: leave.id,
           type: leave.type?.name || "Unknown",

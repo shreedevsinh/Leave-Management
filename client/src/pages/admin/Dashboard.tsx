@@ -1,11 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Calendar, Search, Users, CalendarDays, CheckCircle, XCircle } from 'lucide-react';
+import DatePicker from "react-datepicker";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
-import { Users, CalendarDays, CheckCircle, XCircle } from "lucide-react";
 import Toast from "../../components/common/Toast";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
-
 
 export default function AdminDashboard() {
   const [open, setOpen] = useState(false);
@@ -21,6 +20,14 @@ export default function AdminDashboard() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState("ALL");
+
+  const [startDateFilter, setStartDateFilter] = useState<Date | null>(null);
+  const [endDateFilter, setEndDateFilter] = useState<Date | null>(null);
+
+  const [openEmployee, setOpenEmployee] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -76,7 +83,16 @@ export default function AdminDashboard() {
       });
 
       const data = await res.json();
+
       setTotalEmployees(data.length);
+
+      // ✅ store for dropdown
+      setEmployees(
+        data.map((emp: any) => ({
+          id: emp.id,
+          name: emp.name,
+        }))
+      );
     } catch (err) {
       console.error(err);
     }
@@ -135,46 +151,15 @@ export default function AdminDashboard() {
     setOpenId(null);
   };
 
-  const stats = [
-    {
-      label: "Total Employees",
-      value: totalEmployees,
-      icon: Users,
-      key: "ALL",
-    },
-    {
-      label: "Pending Requests",
-      value: requests
-        .filter((r) => r.status === "Pending")
-        .reduce((sum, r) => sum + r.days, 0),
-      icon: CalendarDays,
-      key: "Pending",
-    },
-    {
-      label: "Approved Leaves",
-      value: requests
-        .filter((r) => r.status === "Approved")
-        .reduce((sum, r) => sum + r.days, 0),
-      icon: CheckCircle,
-      key: "Approved",
-    },
-    {
-      label: "Rejected",
-      value: requests
-        .filter((r) => r.status === "Rejected")
-        .reduce((sum, r) => sum + r.days, 0),
-      icon: XCircle,
-      key: "Rejected",
-    },
-  ];
-
   const filteredRequests = useMemo(() => {
     let data = [...requests];
 
+    // Status filter
     if (filter !== "ALL") {
       data = data.filter((r) => r.status === filter);
     }
 
+    // Search filter
     if (search) {
       data = data.filter(
         (r) =>
@@ -183,6 +168,23 @@ export default function AdminDashboard() {
       );
     }
 
+    // ✅ Employee filter
+    if (selectedEmployee !== "ALL") {
+      data = data.filter((r) => r.name === selectedEmployee);
+    }
+
+    // ✅ Date filter
+    if (startDateFilter) {
+      data = data.filter((r) => r.rawStart >= startDateFilter);
+    }
+
+    if (endDateFilter) {
+      const end = new Date(endDateFilter);
+      end.setHours(23, 59, 59, 999);
+      data = data.filter((r) => r.rawStart <= end);
+    }
+
+    // Sorting
     data.sort((a, b) => {
       if (sortKey === "days") {
         return sortOrder === "asc" ? a.days - b.days : b.days - a.days;
@@ -193,7 +195,51 @@ export default function AdminDashboard() {
     });
 
     return data;
-  }, [requests, filter, search, sortKey, sortOrder]);
+  }, [
+    requests,
+    filter,
+    search,
+    sortKey,
+    sortOrder,
+    selectedEmployee,
+    startDateFilter,
+    endDateFilter,
+  ]);
+
+  const stats = useMemo(() => {
+    return [
+      {
+        label: "Total Employees",
+        value: selectedEmployee === "ALL" ? totalEmployees : 1,
+        icon: Users,
+        key: "ALL",
+      },
+      {
+        label: "Pending Requests",
+        value: filteredRequests
+          .filter((r) => r.status === "Pending")
+          .reduce((sum, r) => sum + r.days, 0),
+        icon: CalendarDays,
+        key: "Pending",
+      },
+      {
+        label: "Approved Leaves",
+        value: filteredRequests
+          .filter((r) => r.status === "Approved")
+          .reduce((sum, r) => sum + r.days, 0),
+        icon: CheckCircle,
+        key: "Approved",
+      },
+      {
+        label: "Rejected",
+        value: filteredRequests
+          .filter((r) => r.status === "Rejected")
+          .reduce((sum, r) => sum + r.days, 0),
+        icon: XCircle,
+        key: "Rejected",
+      },
+    ];
+  }, [filteredRequests, selectedEmployee, totalEmployees]);
 
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
 
@@ -223,8 +269,10 @@ export default function AdminDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...data}),
+        body: JSON.stringify({ ...data }),
       });
+
+      console.log(res);
 
       const result = await res.json();
 
@@ -306,18 +354,136 @@ export default function AdminDashboard() {
         <div className="bg-[#13263f]/80 p-5 rounded-2xl border border-white/10">
 
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-white font-semibold">
-              Recent Leave Requests
-            </h2>
+          <div className="flex flex-col gap-4 mb-5">
 
-            <input
-              type="text"
-              placeholder="Search employee or type..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-[#1f2937] text-sm px-3 py-2 rounded-lg border border-white/10 outline-none text-white w-full sm:w-64"
-            />
+            {/* Top Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+              {/* Left */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-green-400/10 border border-green-400/20">
+                  <CalendarDays size={30} className="text-green-400" />
+                </div>
+
+                <div>
+                  <h2 className="text-white font-semibold text-lg tracking-wide">
+                    Recent Leave Requests
+                  </h2>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    Manage and review employee leave activity
+                  </p>
+                </div>
+              </div>
+
+              {/* Right */}
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-gray-400 bg-[#0f1e33]/60 px-3 py-1.5 rounded-lg border border-white/10">
+                  {filteredRequests.length} records
+                </div>
+              </div>
+            </div>
+
+            {/* Filters + Search (Single Unified Bar) */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-[#0f1e33]/70 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+
+              {/* LEFT: Filters */}
+              <div className="flex flex-wrap items-center gap-3">
+
+                {/* Employee Dropdown */}
+                <div className="relative min-w-[180px]">
+                  <User className="absolute left-3 top-3 text-gray-400" size={16} />
+
+                  <div
+                    onClick={() => setOpenEmployee((prev) => !prev)}
+                    className="pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white cursor-pointer flex justify-between items-center hover:border-green-400 transition"
+                  >
+                    <span>
+                      {selectedEmployee === "ALL"
+                        ? "All Employees"
+                        : selectedEmployee}
+                    </span>
+                    <span className="text-gray-400 text-xs">▼</span>
+                  </div>
+
+                  {openEmployee && (
+                    <div className="absolute w-full mt-2 bg-[#132033] border border-[#2e3b55] rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+                      <div
+                        onClick={() => {
+                          setSelectedEmployee("ALL");
+                          setOpenEmployee(false);
+                        }}
+                        className="px-4 py-2 hover:bg-[#1c2a3f] cursor-pointer text-gray-300"
+                      >
+                        All Employees
+                      </div>
+
+                      {employees.map((emp) => (
+                        <div
+                          key={emp.id}
+                          onClick={() => {
+                            setSelectedEmployee(emp.name);
+                            setOpenEmployee(false);
+                          }}
+                          className="px-4 py-2 hover:bg-[#1c2a3f] cursor-pointer text-white"
+                        >
+                          {emp.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Start Date */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-3 text-gray-400" size={16} />
+                  <DatePicker
+                    selected={startDateFilter}
+                    onChange={(date) => setStartDateFilter(date)}
+                    placeholderText="Start Date"
+                    className="pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white outline-none w-[150px] focus:border-green-400 transition"
+                  />
+                </div>
+
+                {/* End Date */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-3 text-gray-400" size={16} />
+                  <DatePicker
+                    selected={endDateFilter}
+                    onChange={(date) => setEndDateFilter(date)}
+                    placeholderText="End Date"
+                    className="pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white outline-none w-[150px] focus:border-green-400 transition"
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="hidden md:block h-6 w-px bg-white/10 mx-1" />
+
+                {/* Reset */}
+                <button
+                  onClick={() => {
+                    setSelectedEmployee("ALL");
+                    setStartDateFilter(null);
+                    setEndDateFilter(null);
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 transition"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* RIGHT: Search */}
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+
+                <input
+                  type="text"
+                  placeholder="Search employee or type..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white outline-none focus:border-green-400 transition"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Table Wrapper (important for responsiveness) */}

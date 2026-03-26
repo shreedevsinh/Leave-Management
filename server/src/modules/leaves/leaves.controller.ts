@@ -22,11 +22,11 @@ export class LeavesController {
   // ✅ Get leave by ID
   @Get(':id')
   async getLeaveById(@Param('id') id: string) {
-    return this.leavesService.getLeaveById(Number(id));
+    return this.leavesService.getLeaveById(String(id));
   }
 
   @Put(':id')
   async updateLeaveStatus(@Param('id') id: string, @Body() body: any) {
-    return this.leavesService.updateLeaveStatus(Number(id), body);
+    return this.leavesService.updateLeaveStatus(String(id), body);
   }
 }

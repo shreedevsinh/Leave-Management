@@ -1,6 +1,6 @@
 export class CreateLeaveDto {
-  userId: number;
-  typeId: number;
+  userId: string;
+  typeId: string;
   startDate: string;
   endDate: string;
   reason?: string;
