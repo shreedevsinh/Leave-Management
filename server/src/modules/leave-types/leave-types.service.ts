@@ -51,6 +51,16 @@ export class LeaveTypesService {
     }
   }
 
+  // async getAllLeaveTypes() {
+  //   const leaveTypes = await this.prisma.leaveType.findMany({
+  //     include: {
+  //       balances: true,
+  //     },
+  //   });
+  //   return leaveTypes;
+  // }
+
+
   async createLeaveType(data: CreateLeaveTypeDto) {
     const { name, maxPerYear, isPaid } = data;
     const parsedMax = Number(maxPerYear);

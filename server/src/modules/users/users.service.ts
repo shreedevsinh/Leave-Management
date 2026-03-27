@@ -40,6 +40,7 @@ export class UsersService {
       }
 
       const hashedPassword = await bcrypt.hash(data.password, 10);
+      const { v4: uuidv4 } = await import('uuid');
       const userId = uuidv4();
       dynamoUserId = userId;
 
@@ -150,7 +151,7 @@ export class UsersService {
       } catch {}
 
       if (error instanceof ConflictException) throw error;
-      throw new InternalServerErrorException('Failed to create user');
+      throw new NotFoundException('Failed to create user');
     }
   }
 
