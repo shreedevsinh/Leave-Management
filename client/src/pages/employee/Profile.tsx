@@ -56,7 +56,7 @@ export default function Profile() {
         const fetchData = async () => {
             try {
                 const { data: userData } = await axios.get(
-                    `http://localhost:3000/users/employee/${userId}`
+                    `https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/employee/${userId}`
                 );
 
                 if (!userData) return;
@@ -131,7 +131,7 @@ export default function Profile() {
             };
 
             const { data } = await axios.put(
-                `http://localhost:3000/users/user/${userId}`,
+                `https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/user/${userId}`,
                 payload
             );
 

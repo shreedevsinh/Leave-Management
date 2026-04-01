@@ -1,4 +1,4 @@
-service: leave-management
+service: leave-management-dev-api
 
 provider:
   name: aws
@@ -6,58 +6,79 @@ provider:
   region: ap-south-1
   timeout: 29
   memorySize: 1024
+
   environment:
-    DATABASE_URL: ${env:DATABASE_URL}    # RDS / Prisma
+    DATABASE_URL: ${env:DATABASE_URL}
     JWT_SECRET: ${env:JWT_SECRET}
     NODE_ENV: production
 
-  # IAM Role Permissions
+  httpApi:
+    cors:
+      allowedOrigins:
+        - http://localhost:5173
+        # - https://your-frontend-domain.com  # add in production
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowCredentials: false
+      maxAge: 3600
+
   iamRoleStatements:
     - Effect: "Allow"
       Action:
-        # DynamoDB
         - dynamodb:GetItem
         - dynamodb:Scan
         - dynamodb:Query
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
-        - dynamodb:BatchGetItem 
+        - dynamodb:BatchGetItem
         - dynamodb:BatchWriteItem
       Resource:
         - "arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes"
         - "arn:aws:dynamodb:ap-south-1:*:table/Users"
         - "arn:aws:dynamodb:ap-south-1:*:table/Leaves"
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs"
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances"
 
     - Effect: "Allow"
       Action:
-        # Optional: S3, CloudWatch, etc.
-        - "logs:CreateLogGroup"
-        - "logs:CreateLogStream"
-        - "logs:PutLogEvents"
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
       Resource: "*"
 
 functions:
   auth:
-    handler: dist/lambda.handler
+    handler: dist/lambda-auth.handler
     events:
       - httpApi:
           path: /auth/{proxy+}
           method: ANY
+
   users:
-    handler: dist/lambda.handler
+    handler: dist/lambda-users.handler
     events:
       - httpApi:
           path: /users/{proxy+}
           method: ANY
+
   leaves:
-    handler: dist/lambda.handler
+    handler: dist/lambda-leaves.handler
     events:
       - httpApi:
           path: /leaves/{proxy+}
           method: ANY
+
   leaveTypes:
-    handler: dist/lambda.handler
+    handler: dist/lambda-leave-types.handler
     events:
       - httpApi:
           path: /leave-types/{proxy+}
@@ -66,20 +87,18 @@ functions:
 package:
   individually: true
   patterns:
-    # Exclude unnecessary files
     - '!**/*.md'
     - '!**/*.map'
     - '!**/node_modules/aws-sdk/**'
     - '!**/node_modules/@prisma/engines/**'
-    - '!**/node_modules/.prisma/client/query-engine-*' # Exclude all first
+    - '!**/node_modules/.prisma/client/query-engine-*'
 
-    # Include Prisma Client code and binaries for RDS
-    - 'node_modules/@prisma/client/**'
-    - 'node_modules/.prisma/client/**'
+    # Prisma binaries (IMPORTANT)
     - 'node_modules/.prisma/client/query-engine-rhel-openssl-1.0.x'
+    - 'node_modules/.prisma/client/query-engine-rhel-openssl-3.0.x'
     - 'prisma/schema.prisma'
 
-    # Include AWS SDK v3 for DynamoDB
+    # AWS SDK v3
     - 'node_modules/@aws-sdk/**'
 
 custom:
@@ -87,7 +106,7 @@ custom:
     bundle: true
     minify: false
     sourcemap: false
-    target: node20          # Node 20 runtime
+    target: node20
     platform: node
     keepNames: true
     external:
@@ -99,3 +118,4 @@ custom:
       - '@nestjs/websockets/socket-module'
       - sharp
       - bcrypt
+      - '@prisma/client'

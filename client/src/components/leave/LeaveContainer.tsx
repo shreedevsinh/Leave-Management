@@ -47,7 +47,7 @@ export default function LeaveContainer() {
     /* ✅ Fetch + expand multi-day leaves */
     const fetchLeaves = async () => {
         try {
-            const res = await fetch("http://localhost:3000/leaves");
+            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/");
 
             if (!res.ok) throw new Error("Failed to fetch leaves");
 
@@ -115,7 +115,7 @@ export default function LeaveContainer() {
             setLoadingLeaveTypes(true);
             setErrorLeaveTypes(null);
 
-            const res = await fetch("http://localhost:3000/leave-types");
+            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/");
 
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status} - Failed to fetch`);
@@ -147,7 +147,7 @@ export default function LeaveContainer() {
 
         try {
             const res = await fetch(
-                `http://localhost:3000/leave-types/${deleteId}`,
+                `https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/${deleteId}`,
                 { method: "DELETE" }
             );
 

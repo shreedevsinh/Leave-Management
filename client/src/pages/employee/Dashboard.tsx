@@ -38,7 +38,7 @@ export default function EmployeeDashboard() {
 
   const fetchLeaves = async () => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -71,7 +71,7 @@ export default function EmployeeDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -49,7 +49,7 @@ export default function CreateLeaveTypeModal({
         setLoading(true);
 
         try {
-            const res = await fetch("http://localhost:3000/leave-types", {
+            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

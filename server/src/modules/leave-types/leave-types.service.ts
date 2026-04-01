@@ -119,7 +119,7 @@ export class LeaveTypesService {
 
   async deleteLeaveType(id: string): Promise<boolean> {
     try {
-      await this.prisma.leaveType.delete({ where: { id: String(id) } });
+      // await this.prisma.leaveType.delete({ where: { id: String(id) } });
 
       await this.dynamo.getClient().send(
         new DeleteCommand({

@@ -24,6 +24,16 @@ export class LeavesService {
     private dynamo: DynamoService,
   ) {}
 
+  // console.log = (step: string, data?: any) => {
+  //   console.log(
+  //     JSON.stringify({
+  //       step,
+  //       timestamp: new Date().toISOString(),
+  //       ...(data && { data }),
+  //     }),
+  //   );
+  // };
+
   // ✅ Utility: calculate days
   private calculateDays(start: Date, end: Date): number {
     const s = new Date(start);
@@ -69,11 +79,16 @@ export class LeavesService {
     year: number,
     days: number,
   ): Promise<{ typeId: string; days: number }[]> {
+    console.log('🔹 resolveLeaveSplitDynamo:start', {
+      userId,
+      typeId,
+      year,
+      days,
+    });
+
     const dynamoClient = this.dynamo.getClient();
 
-    // ====================================
-    // ✅ 1. Get Leave Type
-    // ====================================
+    console.log('📥 Fetching LeaveType...');
     const typeRes = await dynamoClient.send(
       new GetCommand({
         TableName: 'LeaveTypes',
@@ -81,38 +96,44 @@ export class LeavesService {
       }),
     );
 
-    const type = typeRes.Item;
+    console.log('📦 LeaveType result', typeRes.Item);
 
-    if (!type) {
+    if (!typeRes.Item) {
+      console.log('❌ Invalid leave type');
       throw new BadRequestException('Invalid leave type');
     }
 
-    // ====================================
-    // ✅ 2. Get Leave Balance
-    // (Assuming composite key OR unique id)
-    // ====================================
+    const type = typeRes.Item;
+
+    console.log('📥 Fetching LeaveBalance...');
     const balanceRes = await dynamoClient.send(
-      new GetCommand({
+      new ScanCommand({
         TableName: 'LeaveBalances',
-        Key: {
-          userId: String(userId),
-          typeId: String(typeId),
-          year: String(year),
+        FilterExpression:
+          '#userId = :userId AND #typeId = :typeId AND #year = :year',
+        ExpressionAttributeNames: {
+          '#userId': 'userId',
+          '#typeId': 'typeId',
+          '#year': 'year',
+        },
+        ExpressionAttributeValues: {
+          ':userId': String(userId),
+          ':typeId': String(typeId),
+          ':year': String(year),
         },
       }),
     );
 
-    let balance = balanceRes.Item;
+    let balance = balanceRes.Items?.[0];
 
-    // ====================================
-    // ✅ 3. Create balance if not exists
-    // ====================================
     if (!balance) {
+      console.log('🆕 Creating new balance');
+
       balance = {
         id: uuidv4(),
         userId: String(userId),
         typeId: String(typeId),
-        year: String(year),
+        year: Number(year),
         total: type.maxPerYear,
         used: 0,
         remaining: type.maxPerYear,
@@ -124,82 +145,85 @@ export class LeavesService {
           Item: balance,
         }),
       );
+
+      console.log('✅ Balance created', balance);
     }
 
-    // ====================================
-    // ✅ 4. Enough balance
-    // ====================================
     if (balance.remaining >= days) {
+      console.log('✅ Enough balance', { remaining: balance.remaining });
       return [{ typeId, days }];
     }
 
+    console.log('⚠️ Partial balance, splitting required');
+
     const result: { typeId: string; days: number }[] = [];
 
-    // ====================================
-    // ✅ 5. Partial normal leave
-    // ====================================
     if (balance.remaining > 0) {
-      result.push({
-        typeId,
-        days: balance.remaining,
-      });
+      result.push({ typeId, days: balance.remaining });
     }
 
-    // ====================================
-    // ✅ 6. Find "Paid Leave"
-    // ⚠️ No direct query → using Scan
-    // ====================================
+    console.log('🔍 Searching Paid Leave type...');
     const paidLeaveRes = await dynamoClient.send(
       new ScanCommand({
         TableName: 'LeaveTypes',
         FilterExpression: '#name = :name',
-        ExpressionAttributeNames: {
-          '#name': 'name',
-        },
-        ExpressionAttributeValues: {
-          ':name': 'Paid Leave',
-        },
+        ExpressionAttributeNames: { '#name': 'name' },
+        ExpressionAttributeValues: { ':name': 'Paid Leave' },
       }),
     );
+
+    console.log('📦 Paid leave result', paidLeaveRes.Items);
 
     const paidLeaveType = paidLeaveRes.Items?.[0];
 
     if (!paidLeaveType) {
+      console.log('❌ Paid leave not found');
       throw new BadRequestException('Paid Leave type not configured');
     }
 
-    // ====================================
-    // ✅ 7. Remaining → Paid Leave
-    // ====================================
     result.push({
       typeId: paidLeaveType.id,
       days: days - balance.remaining,
     });
+
+    console.log('✅ Final split result', result);
 
     return result;
   }
 
   // ✅ Create Leave
   async createLeave(data: CreateLeaveDto) {
+    console.log('🚀 createLeave called with data:', JSON.stringify(data));
+
     const { userId, typeId, startDate, endDate, reason, status } = data;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    console.log('📅 Parsed Dates:', {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    });
+
     if (end < start) {
+      console.error('❌ Invalid date range');
       throw new BadRequestException('End date cannot be before start date');
     }
 
     const segments = this.splitLeaveByYear(start, end);
+    console.log('🧩 Segments:', JSON.stringify(segments));
 
     const dynamoClient = this.dynamo.getClient();
+    console.log('📦 Dynamo client initialized');
 
     const createdLeaves: any[] = [];
 
     try {
       // ====================================
-      // ✅ 1. Check overlap (Dynamo)
+      // ✅ 1. Check overlap
       // ====================================
+      console.log('🔍 Checking overlap in Dynamo...');
+
       const overlapRes = await dynamoClient.send(
         new ScanCommand({
           TableName: 'Leaves',
@@ -221,23 +245,32 @@ export class LeavesService {
         }),
       );
 
+      console.log('🔍 Overlap result:', JSON.stringify(overlapRes.Items));
+
       if (overlapRes.Items?.length) {
+        console.error('❌ Leave overlap detected');
         throw new BadRequestException('Leave already exists');
       }
 
       // ====================================
       // ✅ 2. Create leaves in Dynamo
       // ====================================
-      for (const segment of segments) {
-        const days = this.calculateDays(segment.start, segment.end);
+      console.log('🛠 Creating leaves in Dynamo...');
 
-        // ⚠️ Simplified (no Prisma tx)
+      for (const segment of segments) {
+        console.log('➡️ Processing segment:', JSON.stringify(segment));
+
+        const days = this.calculateDays(segment.start, segment.end);
+        console.log('📊 Calculated days:', days);
+
         const splits = await this.resolveLeaveSplitDynamo(
           userId,
           typeId,
           segment.year,
           days,
         );
+
+        console.log('🔀 Leave splits:', JSON.stringify(splits));
 
         for (const split of splits) {
           const leaveId = uuidv4();
@@ -255,6 +288,8 @@ export class LeavesService {
             updatedAt: new Date().toISOString(),
           };
 
+          console.log('📤 Putting item to Dynamo:', JSON.stringify(item));
+
           await dynamoClient.send(
             new PutCommand({
               TableName: 'Leaves',
@@ -262,17 +297,23 @@ export class LeavesService {
             }),
           );
 
+          console.log('✅ Dynamo insert success:', leaveId);
+
           createdLeaves.push(item);
         }
       }
 
       // ====================================
-      // ✅ 3. Sync to RDS (non-blocking)
+      // ✅ 3. Sync to RDS
       // ====================================
+      console.log('🔄 Syncing to RDS...');
+
       try {
         await Promise.all(
-          createdLeaves.map((leave) =>
-            this.prisma.leave.create({
+          createdLeaves.map((leave) => {
+            console.log('📥 Syncing leave to RDS:', leave.id);
+
+            return this.prisma.leave.create({
               data: {
                 id: leave.id,
                 userId: leave.userId,
@@ -283,9 +324,11 @@ export class LeavesService {
                 reason: leave.reason,
                 status: leave.status,
               },
-            }),
-          ),
+            });
+          }),
         );
+
+        console.log('✅ RDS sync completed');
       } catch (err) {
         console.error('❌ RDS sync failed:', err);
       }
@@ -294,7 +337,11 @@ export class LeavesService {
       // ✅ 4. Auto approve
       // ====================================
       if (status === 'APPROVED') {
+        console.log('⚡ Auto-approving leaves...');
+
         for (const leave of createdLeaves) {
+          console.log('✅ Approving leave:', leave.id);
+
           await this.updateLeaveStatus(leave.id, {
             status: 'APPROVED',
             approvedBy: userId,
@@ -302,25 +349,38 @@ export class LeavesService {
         }
       }
 
+      console.log(
+        '🎉 Leave creation successful:',
+        JSON.stringify(createdLeaves),
+      );
+
       return createdLeaves;
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('🔥 ERROR in createLeave:', error);
 
       // ====================================
       // ❗ Rollback Dynamo
       // ====================================
+      console.log('↩️ Rolling back Dynamo entries...');
+
       await Promise.all(
-        createdLeaves.map((l) =>
-          dynamoClient.send(
+        createdLeaves.map((l) => {
+          console.log('🗑 Deleting item:', l.id);
+
+          return dynamoClient.send(
             new DeleteCommand({
               TableName: 'Leaves',
               Key: { id: l.id },
             }),
-          ),
-        ),
+          );
+        }),
       );
 
-      throw new InternalServerErrorException('Failed to create leave');
+      console.log('✅ Rollback completed');
+
+      throw new InternalServerErrorException(
+        error?.message || 'Failed to create leave',
+      );
     }
   }
 
@@ -435,7 +495,7 @@ export class LeavesService {
       const type = batchRes.Responses?.LeaveTypes?.[0] || null;
 
       // ✅ 3. Get Logs (if stored separately)
-      // const logsRes = await this.dynamo.getClient().send(
+      // const console.logsRes = await this.dynamo.getClient().send(
       //   new QueryCommand({
       //     TableName: 'LeaveLogs',
       //     KeyConditionExpression: 'leaveId = :leaveId',
@@ -445,14 +505,14 @@ export class LeavesService {
       //   }),
       // );
 
-      // const logs = logsRes.Items || [];
+      // const console.logs = console.logsRes.Items || [];
 
       // ✅ 4. Merge all
       return {
         ...leave,
         user,
         type,
-        // logs,
+        // console.logs,
       };
     } catch (err) {
       console.error('❌ Error fetching leave by ID:', err);

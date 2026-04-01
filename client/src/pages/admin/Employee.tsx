@@ -25,7 +25,7 @@ function Employee() {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:3000/users/employees");
+            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/employees");
             if (!res.ok) throw new Error("Failed to fetch employees");
 
             const data: Employee[] = await res.json();
@@ -44,7 +44,7 @@ function Employee() {
 
     const handleAddEmployee = async (newEmp: Partial<Employee>) => {
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newEmp),
@@ -62,7 +62,7 @@ function Employee() {
 
     const handleEditEmployee = async (id: number, updatedEmp: Partial<Employee>) => {
         try {
-            const res = await fetch(`http://localhost:3000/users/${id}`, {
+            const res = await fetch(`https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedEmp),
@@ -82,7 +82,7 @@ function Employee() {
         if (!deleteId) return;
 
         try {
-            const res = await fetch(`http://localhost:3000/users/${deleteId}`, {
+            const res = await fetch(`https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/${deleteId}`, {
                 method: "DELETE",
             });
             if (!res.ok) throw new Error("Failed to delete employee");
