@@ -6,4 +6,5 @@ export class CreateUserDto {
   role: undefined;
   isActive: boolean;
   joinDate: string;
+  salary: number;
 }

@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
@@ -11,9 +12,9 @@ import {
   DeleteCommand,
   GetCommand,
   ScanCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -42,6 +43,7 @@ export class UsersService {
       const hashedPassword = await bcrypt.hash(data.password, 10);
       const { v4: uuidv4 } = await import('uuid');
       const userId = uuidv4();
+      const salaryId = uuidv4();
       dynamoUserId = userId;
 
       const now = new Date().toISOString();
@@ -58,8 +60,22 @@ export class UsersService {
             role: data.role,
             isActive: data.isActive ?? true,
             joinDate: data.joinDate.toString(),
+            salary: data.salary,
             createdAt: now,
             updatedAt: now,
+          },
+        }),
+      );
+
+      await this.dynamo.getClient().send(
+        new PutCommand({
+          TableName: 'Salaries',
+          Item: {
+            id: salaryId,
+            userId,
+            baseSalary: data.salary,
+            createdAt: now,
+            isActive: true,
           },
         }),
       );
@@ -104,6 +120,16 @@ export class UsersService {
           role: data.role,
           isActive: data.isActive ?? true,
           joinDate: data.joinDate.toString(),
+        },
+      });
+
+      const salary = await this.prisma.salary.create({
+        data: {
+          id: salaryId,
+          userId,
+          baseSalary: data.salary,
+          createdAt: now,
+          isActive: true,
         },
       });
 
@@ -157,6 +183,7 @@ export class UsersService {
 
   async updateUser(id: string, data: UpdateUserDto) {
     let oldDynamoUser: any = null;
+    let curruntSalaryId: any = null;
 
     try {
       if (data.email || data.mobile) {
@@ -227,6 +254,10 @@ export class UsersService {
         },
       });
 
+      curruntSalaryId = await this.prisma.salary.findFirst({
+        where: { userId: id, isActive: true },
+      });
+
       const { password, ...safeUser } = updatedUser;
       return { user: safeUser };
     } catch (error) {
@@ -245,6 +276,95 @@ export class UsersService {
       if (error instanceof NotFoundException) throw error;
 
       throw new InternalServerErrorException('Failed to update user');
+    }
+  }
+
+  async updateSalary(userId: string, newSalary: number) {
+    try {
+      if (!newSalary || newSalary <= 0) {
+        throw new BadRequestException('Invalid salary amount');
+      }
+
+      const { v4: uuidv4 } = await import('uuid');
+      const newSalaryId = uuidv4();
+
+      const client = this.dynamo.getClient();
+
+      // 🔍 Find current active salary (optional)
+      const currentSalaryRes = await client.send(
+        new ScanCommand({
+          TableName: 'Salaries',
+          FilterExpression: 'userId = :userId AND isActive = :isActive',
+          ExpressionAttributeValues: {
+            ':userId': userId,
+            ':isActive': true,
+          },
+        }),
+      );
+
+      const currentSalary = currentSalaryRes.Items?.[0] || null;
+
+      // 🔄 If exists → deactivate
+      if (currentSalary) {
+        await client.send(
+          new UpdateCommand({
+            TableName: 'Salaries',
+            Key: { id: currentSalary.id },
+            UpdateExpression: 'SET isActive = :false, endDate = :endDate',
+            ExpressionAttributeValues: {
+              ':false': false,
+              ':endDate': new Date().toISOString(),
+            },
+          }),
+        );
+      }
+
+      // ➕ Always create new salary
+      const newItem = {
+        id: newSalaryId,
+        userId,
+        baseSalary: newSalary,
+        createdAt: new Date().toISOString(),
+        isActive: true,
+      };
+
+      await client.send(
+        new PutCommand({
+          TableName: 'Salaries',
+          Item: newItem,
+        }),
+      );
+
+      await client.send(
+        new UpdateCommand({
+          TableName: 'Users',
+          Key: { id: userId },
+          UpdateExpression: 'SET salary = :salary',
+          ExpressionAttributeValues: {
+            ':salary': newSalary,
+          },
+        }),
+      );
+
+      // ✅ Clean response with history hint
+      return {
+        message: 'Salary updated successfully',
+        data: newItem,
+        previousSalary: currentSalary
+          ? {
+              id: currentSalary.id,
+              baseSalary: currentSalary.baseSalary,
+            }
+          : null,
+      };
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to update salary');
     }
   }
 
@@ -371,7 +491,10 @@ export class UsersService {
 
   async getEmployees() {
     try {
-      const result = await this.dynamo.getClient().send(
+      const client = this.dynamo.getClient();
+
+      // 👤 Get employees
+      const usersRes = await client.send(
         new ScanCommand({
           TableName: 'Users',
           FilterExpression: '#role = :role',
@@ -384,8 +507,45 @@ export class UsersService {
         }),
       );
 
-      return result.Items || [];
-    } catch {
+      // 💰 Get active salaries
+      const salaryRes = await client.send(
+        new ScanCommand({
+          TableName: 'Salaries',
+          FilterExpression: 'isActive = :isActive',
+          ExpressionAttributeValues: {
+            ':isActive': true,
+          },
+        }),
+      );
+
+      // 🧠 Create salary map (userId → salary)
+      const salaryMap = new Map<string, any>();
+
+      (salaryRes.Items || []).forEach((s: any) => {
+        salaryMap.set(s.userId, s);
+      });
+
+      // 🔗 Merge
+      return (usersRes.Items || []).map((u: any) => {
+        const salary = salaryMap.get(u.id);
+
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          mobile: u.mobile,
+          role: u.role,
+          isActive: u.isActive,
+          salary: salary
+            ? {
+                id: salary.id,
+                baseSalary: salary.baseSalary,
+              }
+            : null,
+        };
+      });
+    } catch (error) {
+      console.error(error);
       throw new InternalServerErrorException('Failed to get employees');
     }
   }

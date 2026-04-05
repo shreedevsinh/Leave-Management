@@ -43,6 +43,14 @@ export class UsersController {
     return this.usersService.getEmployee(id);
   }
 
+  @Post('/:id/salary')
+  async updateSalary(
+    @Param('id') id: string,
+    @Body() body: { newSalary: number },
+  ) {
+    return this.usersService.updateSalary(id, body.newSalary);
+  }
+
   @Delete('/:id')
   async deleteEmployee(@Param('id') id: string) {
     return this.usersService.deleteEmployee(id);

@@ -4,9 +4,9 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x", "linux-musl", "rhel-openssl-3.0.x"]
-  engineType = "binary"
+  engineType    = "binary"
 }
 
 enum Role {
@@ -28,68 +28,78 @@ enum LeaveAction {
   CANCELLED
 }
 
-model User {
-  id        String   @id
-  name      String
-  email     String   @unique
-  mobile    String   @default("")
-  password  String
-  role      Role     @default(EMPLOYEE)
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+}
 
-  leaves    Leave[]
-  balances  LeaveBalance[]
+model User {
+  id       String @id
+  name     String
+  email    String @unique
+  mobile   String @default("")
+  password String
+  role     Role   @default(EMPLOYEE)
+
+  // relations
+  leaves   Leave[]
+  balances LeaveBalance[]
+  salaries Salary[]
+  payrolls Payroll[]
 
   refreshToken String?
-  isActive  Boolean  @default(true)
+  isActive     Boolean @default(true)
 
-  joinDate  String
+  joinDate String
+
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now()) 
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Leave {
-  id          String      @id
-  userId      String
-  typeId      String
-  status      LeaveStatus  @default(PENDING)
+  id     String      @id
+  userId String
+  typeId String
+  status LeaveStatus @default(PENDING)
 
-  startDate   DateTime
-  endDate     DateTime
-  totalDays   Float
+  startDate DateTime
+  endDate   DateTime
+  totalDays Float
 
-  reason      String?
+  reason String?
 
-  appliedAt   DateTime     @default(now())
+  appliedAt DateTime @default(now())
 
-  approvedBy  String?         
+  approvedBy      String?
   rejectionReason String?
 
-  user        User         @relation(fields: [userId], references: [id])
-  type        LeaveType    @relation(fields: [typeId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+  type LeaveType @relation(fields: [typeId], references: [id])
 
-  logs        LeaveLog[]
+  logs LeaveLog[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LeaveType {
-  id          String   @id
-  name        String   @unique
-  maxPerYear  Int
-  isPaid      Boolean  @default(true)
+  id         String  @id
+  name       String  @unique
+  maxPerYear Int
+  isPaid     Boolean @default(true)
 
-  leaves      Leave[]
-  balances    LeaveBalance[]
+  leaves   Leave[]
+  balances LeaveBalance[]
 }
 
 model LeaveBalance {
-  id        String   @id
+  id        String @id
   userId    String
   typeId    String
 
   total     Float
-  used      Float    @default(0)
+  used      Float @default(0)
   remaining Float
 
   year      Int
@@ -101,13 +111,85 @@ model LeaveBalance {
 }
 
 model LeaveLog {
-  id          String        @id
+  id          String      @id
   leaveId     String
   action      LeaveAction
-  performedBy Int
+  performedBy String       // fixed type
   note        String?
 
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime        @default(now())
 
-  leave       Leave         @relation(fields: [leaveId], references: [id])
+leave         Leave        @relation(fields: [leaveId], references: [id])
+}
+
+//
+// 💰 SALARY HISTORY (increments tracking)
+//
+model Salary {
+  id         String   @id
+  userId     String
+
+  baseSalary Float    // monthly salary
+
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  isActive   Boolean  @default(true)
+
+  @@unique([userId])
+}
+
+//
+// 📊 MONTHLY PAYROLL (core calculation table)
+//
+model Payroll {
+  id            String @id
+  userId        String
+
+  month         Int   // 1-12
+  year          Int
+
+  totalDays     Int   // e.g. 31
+  workingDays   Int   // exclude Sat/Sun
+  workingHours  Float // workingDays * 8
+
+  leaveDays     Float @default(0)
+  leaveHours    Float @default(0)
+
+  payableDays   Float
+  payableHours  Float
+
+  baseSalary    Float
+  finalSalary   Float
+
+  generatedAt   DateTime @default(now())
+
+  user          User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, month, year])
+}
+
+
+model Attendance {
+  id        String   @id 
+  userId    String
+
+  date      DateTime
+
+  checkIn   DateTime?
+  checkOut  DateTime?
+
+  workingHours  Float  @default(0) 
+  lateHours     Float  @default(0) 
+
+  status AttendanceStatus @default(PRESENT)
+
+  note String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
 }

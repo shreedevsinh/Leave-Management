@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { User, Mail, Lock, Briefcase, Eye, EyeOff } from "lucide-react";
 
+import { User, Mail, Lock, Briefcase, Eye, EyeOff, Calendar, IndianRupee } from "lucide-react";
 interface EmployeeFormData {
     id?: string;
     name: string;
@@ -12,6 +12,7 @@ interface EmployeeFormData {
     mobile?: string;
     isActive?: boolean;
     joinDate?: string;
+    salary?: number;
 }
 
 interface Props {
@@ -31,6 +32,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
         mobile: "",
         isActive: true,
         joinDate: "",
+        salary: 0,
     });
 
     const [errors, setErrors] = useState<any>({});
@@ -53,6 +55,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                 mobile: "",
                 isActive: true,
                 joinDate: "",
+                salary: 0,
             });
 
         setErrors({});
@@ -79,6 +82,10 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
 
         // Join Date
         if (!form.joinDate) newErrors.joinDate = "Join date is required";
+
+        // Salary
+        if (form.salary !== undefined && form.salary < 0)
+            newErrors.salary = "Salary cannot be negative";
 
         // Password (only for add)
         if (!employee) {
@@ -205,7 +212,8 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                     </div>
 
                     {/* Join Date */}
-                    <div>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-3 text-white" size={18} />
                         <DatePicker
                             selected={form.joinDate ? new Date(form.joinDate) : null}
                             onChange={(date) => {
@@ -217,10 +225,26 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                             }}
                             placeholderText="Join Date"
                             dateFormat="yyyy-MM-dd"
-                            className="w-full px-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-white outline-none"
+                            className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] outline-none"
                         />
                         {errors.joinDate && <p className="text-red-400 text-xs mt-1">{errors.joinDate}</p>}
                     </div>
+
+                    {/* Salary */}
+                    {!employee && (
+                        <div className="relative">
+                            <IndianRupee className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="number"
+                                name="salary"
+                                placeholder="Salary"
+                                value={form.salary}
+                                onChange={handleChange}
+                                className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] outline-none"
+                            />
+                            {errors.salary && <p className="text-red-400 text-xs mt-1">{errors.salary}</p>}
+                        </div>
+                    )}
 
                     {/* Password */}
                     {!employee && (
@@ -263,7 +287,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                         <button type="button" onClick={handleClose} className="px-4 py-2 rounded-lg bg-white/10">
                             Cancel
                         </button>
-                        <button type="submit" className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-400 to-green-500 text-black font-medium">
+                        <button type="submit" className="button-gradient">
                             {employee ? "Update Employee" : "Add Employee"}
                         </button>
                     </div>

@@ -72,7 +72,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/");
+                const res = await fetch("http://localhost:3000/leave-types");
 
                 if (!res.ok) {
                     throw new Error("Failed to fetch leave types");
@@ -121,7 +121,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/employees");
+                const res = await fetch("http://localhost:3000/users/employees");
                 const data = await res.json();
 
                 setEmployees(data);

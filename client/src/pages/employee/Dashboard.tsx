@@ -1,8 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
-import { CalendarDays, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle,
+  XCircle,
+  Clock,
+} from "lucide-react";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
 import Toast from "../../components/common/Toast";
 
@@ -17,6 +22,12 @@ export default function EmployeeDashboard() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // 🔥 Pagination states (NEW)
+  const [lastKey, setLastKey] = useState<any>(null);
+  const [currentKey, setCurrentKey] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [totalLeaves, setTotalLeaves] = useState(0);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -36,59 +47,113 @@ export default function EmployeeDashboard() {
       year: "numeric",
     });
 
-  const fetchLeaves = async () => {
+  // 🔥 Build Query
+  const buildQuery = (key: any = null) => {
+    let params = new URLSearchParams();
+
+    params.append("limit", String(itemsPerPage));
+
+    if (key) params.append("lastKey", JSON.stringify(key));
+    if (filter !== "ALL") params.append("status", filter);
+    if (search) params.append("search", search);
+
+    // ✅ Only this employee
+    params.append("employeeId", userId);
+
+    params.append("sortKey", sortKey);
+    params.append("sortOrder", sortOrder);
+
+    return params.toString();
+  };
+
+  // 🔥 Fetch Leaves
+  const fetchLeaves = async (key = null) => {
     try {
-      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/", {
+      const query = buildQuery(key);
+
+      const res = await fetch(`http://localhost:3000/leaves?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
-      console.log(data, "data");
-      
-      const formatted = data
-        .filter((leave: any) => leave.user.id == userId)
-        .map((leave: any) => ({
-          id: leave.id,
-          type: leave.type?.name || "Unknown",
-          days: leave.totalDays,
-          status:
-            leave.status.charAt(0).toUpperCase() +
-            leave.status.slice(1).toLowerCase(),
-          startDate: formatDate(leave.startDate),
-          endDate: formatDate(leave.endDate),
-          rawStart: new Date(leave.startDate),
-        }));
+
+      setTotalLeaves(data.totalCount);
+
+      const formatted = data.items.map((leave: any) => ({
+        id: leave.id,
+        type: leave.type?.name || "Unknown",
+        days: leave.totalDays,
+        status:
+          leave.status?.charAt(0).toUpperCase() +
+          leave.status?.slice(1).toLowerCase(),
+        startDate: formatDate(leave.startDate),
+        endDate: formatDate(leave.endDate),
+        rawStart: new Date(leave.startDate),
+      }));
 
       setRequests(formatted);
+      setCurrentKey(key);
+      setLastKey(data.lastKey || null);
     } catch (err) {
       console.error(err);
     }
   };
 
+  // 🔥 Pagination
+  const handleNext = () => {
+    if (!lastKey) return;
+
+    setHistory((prev) => [...prev, currentKey]);
+    fetchLeaves(lastKey);
+    setCurrentPage((p) => p + 1);
+  };
+
+  const handlePrev = () => {
+    if (history.length === 0) return;
+
+    const prevHistory = [...history];
+    const prevKey = prevHistory.pop();
+
+    setHistory(prevHistory);
+
+    fetchLeaves(prevKey ?? null);
+    setCurrentPage((p) => Math.max(p - 1, 1));
+  };
+
+  // 🔥 Initial Load
   useEffect(() => {
-    fetchLeaves();
+    fetchLeaves(null);
   }, []);
+
+  // 🔥 Reset on filters
+  useEffect(() => {
+    setCurrentPage(1);
+    setLastKey(null);
+    setCurrentKey(null);
+    setHistory([]);
+
+    fetchLeaves(null);
+  }, [filter, search, sortKey, sortOrder]);
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/", {
+      const res = await fetch("http://localhost:3000/leaves/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...data, userId }),
+        body: JSON.stringify({ ...data }),
       });
 
       const result = await res.json();
 
-      // ❌ Handle API errors
       if (!res.ok) {
         setToast({
-          message: result.message.message,
+          message: result.message?.message || "Something went wrong",
           type: "error",
         });
-      }else{
+      } else {
         setToast({
           message: "Leave applied successfully",
           type: "success",
@@ -97,15 +162,24 @@ export default function EmployeeDashboard() {
 
       await fetchLeaves();
       setOpen(false);
-
     } catch (err: any) {
       setToast({
-        message: err.message.message,
+        message: err.message || "Error occurred",
         type: "error",
       });
     }
   };
 
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  // 🔥 Stats (server-driven requests)
   const stats = [
     {
       label: "My Leaves",
@@ -139,51 +213,6 @@ export default function EmployeeDashboard() {
     },
   ];
 
-  const filteredRequests = useMemo(() => {
-    let data = [...requests];
-
-    if (filter !== "ALL") {
-      data = data.filter((r) => r.status === filter);
-    }
-
-    if (search) {
-      data = data.filter((r) =>
-        r.type.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    data.sort((a, b) => {
-      if (sortKey === "days") {
-        return sortOrder === "asc" ? a.days - b.days : b.days - a.days;
-      }
-      return sortOrder === "asc"
-        ? a.rawStart - b.rawStart
-        : b.rawStart - a.rawStart;
-    });
-
-    return data;
-  }, [requests, filter, search, sortKey, sortOrder]);
-
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-
-  const paginatedData = filteredRequests.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, search]);
-
-  const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortOrder("asc");
-    }
-  };
-
   return (
     <>
       <div className="space-y-6 p-3">
@@ -199,12 +228,31 @@ export default function EmployeeDashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => setOpen(true)}
-            className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-5 py-2.5 rounded-xl"
-          >
-            + Create Leave
-          </button>
+          <div className="flex flex-wrap gap-3">
+            {/* ✅ Check In */}
+            <button
+              onClick={() => handleCheckIn()}
+              className="bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-xl transition"
+            >
+              Check In
+            </button>
+
+            {/* ❌ Check Out */}
+            <button
+              onClick={() => handleCheckOut()}
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-xl transition"
+            >
+              Check Out
+            </button>
+
+            {/* ➕ Create Leave */}
+            <button
+              onClick={() => setOpen(true)}
+              className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-5 py-2.5 rounded-xl"
+            >
+              + Create Leave
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -255,7 +303,6 @@ export default function EmployeeDashboard() {
             />
           </div>
 
-          {/* Table with fixed height */}
           <div className="overflow-x-auto">
             <div className="min-h-[500px] overflow-y-auto rounded-xl">
               <table className="w-full text-sm min-w-[600px]">
@@ -280,7 +327,7 @@ export default function EmployeeDashboard() {
                 </thead>
 
                 <tbody>
-                  {paginatedData.map((r) => (
+                  {requests.map((r) => (
                     <tr
                       key={r.id}
                       className="border-b border-white/5 hover:bg-white/5 transition"
@@ -323,39 +370,21 @@ export default function EmployeeDashboard() {
           {/* Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
             <p className="text-xs text-gray-400">
-              Showing {(currentPage - 1) * itemsPerPage + 1}–
-              {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of{" "}
-              {filteredRequests.length}
+              Showing {requests.length} records (Page {currentPage})
             </p>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={handlePrev}
                 disabled={currentPage === 1}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-green-400 to-teal-400"
               >
                 <ChevronLeft size={20} className="text-white" />
               </button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm
-                    ${currentPage === page
-                      ? "button-gradient text-white"
-                      : "text-gray-400 hover:bg-white/10"
-                    }`}
-                >
-                  {page}
-                </button>
-              ))}
-
               <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(p + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
+                onClick={handleNext}
+                disabled={!lastKey}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-teal-400 to-green-400"
               >
                 <ChevronRight size={20} className="text-white" />

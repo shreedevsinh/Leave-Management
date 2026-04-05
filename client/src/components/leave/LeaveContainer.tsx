@@ -44,10 +44,14 @@ export default function LeaveContainer() {
     /* ✅ FIXED TYPE */
     const [leaves, setLeaves] = useState<Leave[]>([]);
 
+    console.log("currentMonth:", currentMonth, "currentYear:", currentYear);
+
     /* ✅ Fetch + expand multi-day leaves */
     const fetchLeaves = async () => {
         try {
-            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/");
+            const res = await fetch("http://localhost:3000/leaves/monthly?month=" + (currentMonth + 1) + "&year=" + currentYear);
+
+            console.log("Fetch leaves response status:", res);
 
             if (!res.ok) throw new Error("Failed to fetch leaves");
 
@@ -92,7 +96,7 @@ export default function LeaveContainer() {
 
     useEffect(() => {
         fetchLeaves();
-    }, []);
+    }, [currentMonth, currentYear]);
 
     /* Calendar helpers */
     const getDaysInMonth = (year: number, month: number) =>
@@ -115,7 +119,7 @@ export default function LeaveContainer() {
             setLoadingLeaveTypes(true);
             setErrorLeaveTypes(null);
 
-            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/");
+            const res = await fetch("http://localhost:3000/leave-types");
 
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status} - Failed to fetch`);
@@ -147,7 +151,7 @@ export default function LeaveContainer() {
 
         try {
             const res = await fetch(
-                `https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leave-types/${deleteId}`,
+                `http://localhost:3000/leave-types/${deleteId}`,
                 { method: "DELETE" }
             );
 

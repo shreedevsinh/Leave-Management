@@ -1,22 +1,34 @@
 import { useState, useEffect } from "react";
 import EmployeeFormModal from "../../components/Form/EmployeeFormModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import UpdateSalaryFormModal from "../../components/Form/UpdateSalaryFormModal";
+import { IndianRupee } from "lucide-react";
+
 
 interface Employee {
-    id: number;
+    id: string;
     name: string;
     email: string;
     role: string;
     mobile: string;
     isActive: boolean;
     joinDate: string;
+    salary: number;
+}
+
+interface Salary {
+    id: string;
+    name: string;
+    salary: number;
 }
 
 function Employee() {
     const [search, setSearch] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isUpdateSalaryModalOpen, setUpdateSalaryModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [updateSalary, setUpdateSalary] = useState<Salary | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,7 +37,7 @@ function Employee() {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/employees");
+            const res = await fetch("http://localhost:3000/users/employees");
             if (!res.ok) throw new Error("Failed to fetch employees");
 
             const data: Employee[] = await res.json();
@@ -44,7 +56,7 @@ function Employee() {
 
     const handleAddEmployee = async (newEmp: Partial<Employee>) => {
         try {
-            const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/", {
+            const res = await fetch("http://localhost:3000/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newEmp),
@@ -62,7 +74,7 @@ function Employee() {
 
     const handleEditEmployee = async (id: number, updatedEmp: Partial<Employee>) => {
         try {
-            const res = await fetch(`https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/${id}`, {
+            const res = await fetch(`http://localhost:3000/users/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedEmp),
@@ -78,11 +90,30 @@ function Employee() {
         }
     };
 
+    const handleUpdateSalary = async (data: { employeeID: string; currentSalary: number; newSalary: number }) => {
+        if (!updateSalary) return;
+        try {
+            const res = await fetch(`http://localhost:3000/users/${updateSalary.id}/salary`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ newSalary: data.newSalary }),
+            });
+
+            if (!res.ok) throw new Error("Failed to update salary");
+
+            setUpdateSalaryModalOpen(false);
+            setUpdateSalary(null);
+            fetchEmployees();
+        } catch (error) {
+            console.error("Error updating salary:", error);
+        }
+    };
+
     const handleDelete = async () => {
         if (!deleteId) return;
 
         try {
-            const res = await fetch(`https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/users/${deleteId}`, {
+            const res = await fetch(`http://localhost:3000/users/${deleteId}`, {
                 method: "DELETE",
             });
             if (!res.ok) throw new Error("Failed to delete employee");
@@ -125,11 +156,12 @@ function Employee() {
 
             {/* Employee Table */}
             <div className="bg-[#132033]/70 backdrop-blur-lg border border-[#2a3a55] rounded-2xl p-6 shadow-lg">
-                <div className="grid grid-cols-6 text-gray-400 text-sm mb-4 px-2">
+                <div className="grid grid-cols-7 text-gray-400 text-sm mb-4 px-2">
                     <span>Name</span>
                     <span>Email</span>
                     <span>Role</span>
                     <span>Mobile</span>
+                    <span>Salary</span>
                     <span>Active</span>
                     <span className="text-right">Actions</span>
                 </div>
@@ -140,12 +172,18 @@ function Employee() {
                         .map((emp) => (
                             <div
                                 key={emp.id}
-                                className="grid grid-cols-6 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
+                                className="grid grid-cols-7 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
                             >
                                 <span className="font-medium">{emp.name}</span>
-                                <span className="text-gray-300">{emp.email}</span>
+                                <span className="text-gray-300 truncate max-w-[200px] block pr-2">
+                                    {emp.email}
+                                </span>
                                 <span className="text-gray-300">{emp.role}</span>
                                 <span className="text-gray-300">{emp.mobile}</span>
+                                <span className="text-gray-300">
+                                    <IndianRupee className="inline-block mr-1" size={16} />
+                                    {emp.salary?.baseSalary}
+                                </span>
                                 <span>
                                     <span
                                         className={`px-2 py-1 rounded-full text-sm font-medium ${emp.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -156,6 +194,13 @@ function Employee() {
                                 </span>
 
                                 <div className="flex justify-end gap-2">
+
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+                                        onClick={() => { setUpdateSalary(emp); setUpdateSalaryModalOpen(true); }}
+                                    >
+                                        Salary
+                                    </button>
                                     <button
                                         className="px-3 py-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30"
                                         onClick={() => { setEditingEmployee(emp); setIsModalOpen(true); }}
@@ -185,6 +230,14 @@ function Employee() {
                 onAdd={handleAddEmployee}
                 onEdit={handleEditEmployee}
                 employee={editingEmployee || undefined}
+            />
+
+            {/* Update Salary Modal */}
+            <UpdateSalaryFormModal
+                isOpen={isUpdateSalaryModalOpen}
+                onClose={() => { setUpdateSalaryModalOpen(false); setUpdateSalary(null); }}
+                onUpdate={handleUpdateSalary}
+                data={updateSalary || undefined}
             />
 
             {/* Confirm Delete */}

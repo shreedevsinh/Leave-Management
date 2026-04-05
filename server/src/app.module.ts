@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { LeavesModule } from './modules/leaves/leaves.module';
 import { LeaveTypesModule } from './modules/leave-types/leave-types.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { LeaveTypesModule } from './modules/leave-types/leave-types.module';
     UsersModule,
     LeavesModule,
     LeaveTypesModule,
+    PayrollModule,
   ],
 })
 export class AppModule {}

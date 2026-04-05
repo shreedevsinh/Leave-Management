@@ -6,4 +6,5 @@ export class UpdateUserDto {
   role?: undefined;
   isActive?: boolean;
   joinDate?: string;
+  salary?: number;
 }

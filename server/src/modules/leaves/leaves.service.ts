@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
@@ -15,7 +16,6 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateLeaveDto } from './dto/create-leave.dto';
-import { Prisma, Leave } from '@prisma/client';
 
 @Injectable()
 export class LeavesService {
@@ -23,16 +23,6 @@ export class LeavesService {
     private prisma: PrismaService,
     private dynamo: DynamoService,
   ) {}
-
-  // console.log = (step: string, data?: any) => {
-  //   console.log(
-  //     JSON.stringify({
-  //       step,
-  //       timestamp: new Date().toISOString(),
-  //       ...(data && { data }),
-  //     }),
-  //   );
-  // };
 
   // ✅ Utility: calculate days
   private calculateDays(start: Date, end: Date): number {
@@ -384,29 +374,260 @@ export class LeavesService {
     }
   }
 
-  // ✅ Get all leaves
-  async getAllLeaves() {
+  async getAllLeaves(
+    limit = 10,
+    lastKey?: any,
+    employee?: string,
+    startDate?: string,
+    endDate?: string,
+    status?: string,
+  ) {
     try {
-      // ✅ 1. Get leaves
-      const leavesRes = await this.dynamo
+      let filterExpressions: string[] = [];
+      let expressionValues: any = {};
+      let expressionNames: any = {};
+
+      // ✅ Employee filter
+      if (employee) {
+        filterExpressions.push('#userId = :employee');
+        expressionValues[':employee'] = employee;
+        expressionNames['#userId'] = 'userId';
+      }
+
+      // ✅ Status filter
+      if (status && status !== 'ALL') {
+        filterExpressions.push('#status = :status');
+        expressionValues[':status'] = status.toUpperCase();
+        expressionNames['#status'] = 'status';
+      }
+
+      // ✅ Date filter
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        const minDate = start < end ? start : end;
+        const maxDate = start > end ? start : end;
+
+        filterExpressions.push('#startDate BETWEEN :start AND :end');
+        expressionValues[':start'] = minDate.toISOString();
+        expressionValues[':end'] = maxDate.toISOString();
+        expressionNames['#startDate'] = 'startDate';
+      }
+
+      // ================================
+      // 🔥 1. FULL SCAN → STATUS COUNTS
+      // ================================
+      let statusCounts = {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+      };
+
+      let scanKey: any = undefined;
+
+      const seenIds = new Set(); // 🔥 prevent duplicates
+
+      do {
+        const params: any = {
+          TableName: 'Leaves',
+          ExclusiveStartKey: scanKey,
+          ConsistentRead: true, // 🔥 ensures consistent data
+        };
+
+        if (filterExpressions.length > 0) {
+          params.FilterExpression = filterExpressions.join(' AND ');
+          params.ExpressionAttributeValues = expressionValues;
+          params.ExpressionAttributeNames = expressionNames;
+        }
+
+        const res = await this.dynamo.getClient().send(new ScanCommand(params));
+
+        const items = res.Items || [];
+
+        for (const l of items) {
+          const id = String(l.id); // 🔥 unique identifier
+
+          // console.log('🔍 Processing leave for status count:', l.status);
+          // ✅ skip duplicates
+          if (seenIds.has(id)) continue;
+          seenIds.add(id);
+
+          // ✅ optimized condition
+          if (l.status === 'PENDING') statusCounts.pending++;
+          else if (l.status === 'APPROVED') statusCounts.approved++;
+          else if (l.status === 'REJECTED') statusCounts.rejected++;
+          else {
+            console.error('❌ Invalid status:', l.status);
+          }
+        }
+
+        scanKey = res.LastEvaluatedKey;
+      } while (scanKey);
+
+      // ================================
+      // 🔥 2. PAGINATED SCAN
+      // ================================
+      let collected: any[] = [];
+      let lastEvaluatedKey = lastKey || undefined;
+
+      do {
+        const params: any = {
+          TableName: 'Leaves',
+          Limit: limit,
+          ExclusiveStartKey: lastEvaluatedKey,
+        };
+
+        if (filterExpressions.length > 0) {
+          params.FilterExpression = filterExpressions.join(' AND ');
+          params.ExpressionAttributeValues = expressionValues;
+          params.ExpressionAttributeNames = expressionNames;
+        }
+
+        const res = await this.dynamo.getClient().send(new ScanCommand(params));
+
+        const items = res.Items || [];
+        collected.push(...items);
+
+        lastEvaluatedKey = res.LastEvaluatedKey;
+      } while (collected.length < limit && lastEvaluatedKey);
+
+      const paginatedItems = collected.slice(0, limit);
+
+      // ================================
+      // 🔥 3. TOTAL COUNT
+      // ================================
+      const countParams: any = {
+        TableName: 'Leaves',
+        Select: 'COUNT',
+      };
+
+      if (filterExpressions.length > 0) {
+        countParams.FilterExpression = filterExpressions.join(' AND ');
+        countParams.ExpressionAttributeValues = expressionValues;
+        countParams.ExpressionAttributeNames = expressionNames;
+      }
+
+      const countRes = await this.dynamo
         .getClient()
-        .send(new ScanCommand({ TableName: 'Leaves' }));
+        .send(new ScanCommand(countParams));
 
-      const leaves = leavesRes.Items || [];
+      const totalCount = countRes.Count || 0;
 
-      if (leaves.length === 0) return [];
+      if (paginatedItems.length === 0) {
+        return {
+          items: [],
+          lastKey: null,
+          totalCount,
+          totalPages: 0,
+          pending: statusCounts.pending,
+          approved: statusCounts.approved,
+          rejected: statusCounts.rejected,
+        };
+      }
 
-      console.log('📥 Leaves:', leaves.length);
+      // ================================
+      // 🔥 4. RELATIONS (Users + Types)
+      // ================================
+      const userIds = [...new Set(paginatedItems.map((l) => String(l.userId)))];
+      const typeIds = [...new Set(paginatedItems.map((l) => String(l.typeId)))];
 
-      // ✅ 2. Collect IDs (normalize to string)
+      let users: any[] = [];
+      let types: any[] = [];
+
+      if (userIds.length > 0) {
+        const res = await this.dynamo.getClient().send(
+          new BatchGetCommand({
+            RequestItems: {
+              Users: { Keys: userIds.map((id) => ({ id })) },
+            },
+          }),
+        );
+        users = res.Responses?.Users || [];
+      }
+
+      if (typeIds.length > 0) {
+        const res = await this.dynamo.getClient().send(
+          new BatchGetCommand({
+            RequestItems: {
+              LeaveTypes: { Keys: typeIds.map((id) => ({ id })) },
+            },
+          }),
+        );
+        types = res.Responses?.LeaveTypes || [];
+      }
+
+      const userMap = new Map(users.map((u) => [String(u.id), u]));
+      const typeMap = new Map(types.map((t) => [String(t.id), t]));
+
+      const mergedLeaves = paginatedItems.map((leave) => ({
+        ...leave,
+        user: userMap.get(String(leave.userId)) || null,
+        type: typeMap.get(String(leave.typeId)) || null,
+      }));
+
+      // ================================
+      // ✅ FINAL RESPONSE
+      // ================================
+      return {
+        items: mergedLeaves,
+        lastKey: lastEvaluatedKey || null,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        pending: statusCounts.pending,
+        approved: statusCounts.approved,
+        rejected: statusCounts.rejected,
+      };
+    } catch (err) {
+      console.error(err);
+      throw new InternalServerErrorException('Failed to fetch leaves');
+    }
+  }
+
+  async getLeavesByMonth(month: string, year: string) {
+    try {
+      const start = new Date(Number(year), Number(month) - 1, 1);
+      const end = new Date(Number(year), Number(month), 0, 23, 59, 59);
+
+      const client = this.dynamo.getClient();
+
+      // ================================
+      // 🔥 1. GET LEAVES
+      // ================================
+      const res = await client.send(
+        new ScanCommand({
+          TableName: 'Leaves',
+          FilterExpression: '#startDate <= :end AND #endDate >= :start',
+          ExpressionAttributeNames: {
+            '#startDate': 'startDate',
+            '#endDate': 'endDate',
+          },
+          ExpressionAttributeValues: {
+            ':start': start.toISOString(),
+            ':end': end.toISOString(),
+          },
+        }),
+      );
+
+      const leaves = res.Items || [];
+
+      if (leaves.length === 0) {
+        return [];
+      }
+
+      // ================================
+      // 🔥 2. GET UNIQUE IDS
+      // ================================
       const userIds = [...new Set(leaves.map((l) => String(l.userId)))];
 
       const typeIds = [...new Set(leaves.map((l) => String(l.typeId)))];
 
-      // ✅ 3. Batch get users (safe check)
+      // ================================
+      // 🔥 3. FETCH USERS
+      // ================================
       let users: any[] = [];
       if (userIds.length > 0) {
-        const usersRes = await this.dynamo.getClient().send(
+        const userRes = await client.send(
           new BatchGetCommand({
             RequestItems: {
               Users: {
@@ -415,14 +636,15 @@ export class LeavesService {
             },
           }),
         );
-
-        users = usersRes.Responses?.Users || [];
+        users = userRes.Responses?.Users || [];
       }
 
-      // ✅ 4. Batch get types (safe check)
+      // ================================
+      // 🔥 4. FETCH LEAVE TYPES
+      // ================================
       let types: any[] = [];
       if (typeIds.length > 0) {
-        const typesRes = await this.dynamo.getClient().send(
+        const typeRes = await client.send(
           new BatchGetCommand({
             RequestItems: {
               LeaveTypes: {
@@ -431,89 +653,50 @@ export class LeavesService {
             },
           }),
         );
-
-        types = typesRes.Responses?.LeaveTypes || [];
+        types = typeRes.Responses?.LeaveTypes || [];
       }
 
-      // ✅ 5. Create lookup maps (string-safe)
+      // ================================
+      // 🔥 5. MAP DATA
+      // ================================
       const userMap = new Map(users.map((u) => [String(u.id), u]));
-
       const typeMap = new Map(types.map((t) => [String(t.id), t]));
 
-      // ✅ 6. Merge (safe + clean)
-      const result = leaves.map((leave) => {
-        const user = userMap.get(String(leave.userId)) || null;
-        const type = typeMap.get(String(leave.typeId)) || null;
+      const mergedLeaves = leaves.map((leave) => ({
+        ...leave,
+        user: userMap.get(String(leave.userId)) || null,
+        type: typeMap.get(String(leave.typeId)) || null,
+      }));
 
-        return {
-          ...leave,
-          user,
-          type,
-        };
-      });
-
-      return result;
+      // ================================
+      // ✅ FINAL RESPONSE
+      // ================================
+      return mergedLeaves;
     } catch (err) {
-      console.error('❌ Error fetching leaves:', err);
+      console.error(err);
       throw new InternalServerErrorException('Failed to fetch leaves');
     }
   }
 
   // ✅ Get by ID
   async getLeaveById(id: string) {
-    try {
-      const leaveId = String(id);
+    if (!id || id.trim() === '') {
+      throw new BadRequestException('Leave ID must be provided');
+    }
 
-      // ✅ 1. Get Leave
-      const leaveRes = await this.dynamo.getClient().send(
+    try {
+      const res = await this.dynamo.getClient().send(
         new GetCommand({
           TableName: 'Leaves',
-          Key: { id: leaveId },
+          Key: { id }, // id must be non-empty
         }),
       );
 
-      const leave = leaveRes.Item;
+      if (!res.Item) {
+        throw new NotFoundException(`Leave not found with id ${id}`);
+      }
 
-      if (!leave) return null;
-
-      // ✅ 2. Get User + Type using BatchGet
-      const batchRes = await this.dynamo.getClient().send(
-        new BatchGetCommand({
-          RequestItems: {
-            Users: {
-              Keys: [{ id: String(leave.userId) }],
-            },
-            LeaveTypes: {
-              Keys: [{ id: String(leave.typeId) }],
-            },
-          },
-        }),
-      );
-
-      const user = batchRes.Responses?.Users?.[0] || null;
-
-      const type = batchRes.Responses?.LeaveTypes?.[0] || null;
-
-      // ✅ 3. Get Logs (if stored separately)
-      // const console.logsRes = await this.dynamo.getClient().send(
-      //   new QueryCommand({
-      //     TableName: 'LeaveLogs',
-      //     KeyConditionExpression: 'leaveId = :leaveId',
-      //     ExpressionAttributeValues: {
-      //       ':leaveId': leaveId,
-      //     },
-      //   }),
-      // );
-
-      // const console.logs = console.logsRes.Items || [];
-
-      // ✅ 4. Merge all
-      return {
-        ...leave,
-        user,
-        type,
-        // console.logs,
-      };
+      return res.Item;
     } catch (err) {
       console.error('❌ Error fetching leave by ID:', err);
       throw new InternalServerErrorException('Failed to fetch leave');
