@@ -43,10 +43,11 @@ model User {
   role     Role   @default(EMPLOYEE)
 
   // relations
-  leaves   Leave[]
-  balances LeaveBalance[]
-  salaries Salary[]
-  payrolls Payroll[]
+  leaves      Leave[]
+  balances    LeaveBalance[]
+  salaries    Salary[]
+  payrolls    Payroll[]
+  attendances Attendance[]
 
   refreshToken String?
   isActive     Boolean @default(true)
@@ -94,18 +95,18 @@ model LeaveType {
 }
 
 model LeaveBalance {
-  id        String @id
-  userId    String
-  typeId    String
+  id     String @id
+  userId String
+  typeId String
 
   total     Float
   used      Float @default(0)
   remaining Float
 
-  year      Int
+  year Int
 
-  user      User      @relation(fields: [userId], references: [id])
-  type      LeaveType @relation(fields: [typeId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+  type LeaveType @relation(fields: [typeId], references: [id])
 
   @@unique([userId, typeId, year])
 }
@@ -114,27 +115,24 @@ model LeaveLog {
   id          String      @id
   leaveId     String
   action      LeaveAction
-  performedBy String       // fixed type
+  performedBy String // fixed type
   note        String?
 
-  createdAt   DateTime        @default(now())
+  createdAt DateTime @default(now())
 
-leave         Leave        @relation(fields: [leaveId], references: [id])
+  leave Leave @relation(fields: [leaveId], references: [id])
 }
 
-//
-// 💰 SALARY HISTORY (increments tracking)
-//
 model Salary {
-  id         String   @id
-  userId     String
+  id     String @id
+  userId String
 
-  baseSalary Float    // monthly salary
+  baseSalary Float // monthly salary
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
-  isActive   Boolean  @default(true)
+  user     User    @relation(fields: [userId], references: [id])
+  isActive Boolean @default(true)
 
   @@unique([userId])
 }
@@ -143,48 +141,73 @@ model Salary {
 // 📊 MONTHLY PAYROLL (core calculation table)
 //
 model Payroll {
-  id            String @id
-  userId        String
+  id     String @id
+  userId String
 
-  month         Int   // 1-12
-  year          Int
+  month Int // 1-12
+  year  Int
 
-  totalDays     Int   // e.g. 31
-  workingDays   Int   // exclude Sat/Sun
-  workingHours  Float // workingDays * 8
+  totalDays    Int // e.g. 31
+  workingDays  Int // exclude Sat/Sun
+  workingHours Float // workingDays * 8
 
-  leaveDays     Float @default(0)
-  leaveHours    Float @default(0)
+  leaveDays  Float @default(0)
+  leaveHours Float @default(0)
 
-  payableDays   Float
-  payableHours  Float
+  payableDays  Float
+  payableHours Float
 
-  baseSalary    Float
-  finalSalary   Float
+  baseSalary  Float
+  finalSalary Float
 
-  generatedAt   DateTime @default(now())
+  generatedAt DateTime @default(now())
 
-  user          User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, month, year])
+  @@index([userId])
 }
 
+model OfficeTiming {
+  id String @id @default(uuid())
+
+  startTime String
+  endTime   String
+
+  workingHours Float 
+
+  graceMinutes Int @default(0)
+
+  isActive Boolean @default(false)
+
+  // 🔗 Relations
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model Attendance {
-  id        String   @id 
-  userId    String
+  id     String @id @default(uuid())
+  userId String
 
-  date      DateTime
+  date DateTime @db.Date 
 
-  checkIn   DateTime?
-  checkOut  DateTime?
+  checkIn  DateTime?
+  checkOut DateTime?
 
-  workingHours  Float  @default(0) 
-  lateHours     Float  @default(0) 
+  // 📊 Calculated Fields
+  workingHours  Float @default(0) 
+  lateHours     Float @default(0)
+  earlyLeave    Float @default(0)
+  overtimeHours Float @default(0)
 
   status AttendanceStatus @default(PRESENT)
 
   note String?
+
+  officeTimingId String
+  officeTiming   OfficeTiming @relation(fields: [officeTimingId], references: [id])
 
   user User @relation(fields: [userId], references: [id])
 
@@ -192,4 +215,6 @@ model Attendance {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
 }

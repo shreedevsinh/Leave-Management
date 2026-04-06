@@ -141,7 +141,7 @@ export default function MonthlyReports() {
   const totalEmployees = filtered.length;
 
   return (
-    <div className="p-6 space-y-6 text-white">
+    <div className="p-3 space-y-6 text-white">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">

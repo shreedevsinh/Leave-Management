@@ -221,3 +221,59 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+
+  # -------------------------------
+  # Office Timing Table
+  # -------------------------------
+  OfficeTimingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: OfficeTiming
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # -------------------------------
+  # Attendance Table
+  # -------------------------------
+  AttendanceTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Attendance
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: userId-date-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+    
+    
+

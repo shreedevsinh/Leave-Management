@@ -14,6 +14,7 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 import EmployeeDashboard from "./pages/employee/Dashboard";
 import Profile from "./pages/employee/Profile";
 import MonthlyReports from "./pages/admin/MonthlyReports";
+import OfficeTimes from "./pages/admin/OfficeTimes";
 // import EmployeeLeaves from "./pages/employee/Leaves";
 // import Profile from "./pages/employee/Profile";
 
@@ -41,6 +42,7 @@ function App() {
           <Route path="employees" element={<Employee />} />
           <Route path="leaves" element={<Leave />} />
           <Route path="reports" element={<MonthlyReports />} />
+          <Route path="office-times" element={<OfficeTimes />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

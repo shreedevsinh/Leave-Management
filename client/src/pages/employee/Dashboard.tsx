@@ -29,6 +29,8 @@ export default function EmployeeDashboard() {
   const [history, setHistory] = useState<any[]>([]);
   const [totalLeaves, setTotalLeaves] = useState(0);
 
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -213,6 +215,69 @@ export default function EmployeeDashboard() {
     },
   ];
 
+  // 
+  const handleCheckIn = async () => {
+    try {
+      const token = localStorage.getItem("token"); // or cookies
+
+      const res = await fetch("http://localhost:3000/attendance/check-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          checkInTime: new Date().toISOString(),
+        }),
+      });
+
+      // // const data = await res.json();
+
+      // if (!res.ok) {
+      //   throw new Error(data.message || "Check-in failed");
+      // }
+
+      alert("✅ Checked in successfully");
+
+      // optional: update UI state
+      setIsCheckedIn(true);
+
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
+  };
+  const handleCheckOut = async () => {
+    try {
+      const token = localStorage.getItem("token"); // or cookies
+
+      const res = await fetch("http://localhost:3000/attendance/check-out", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          checkOutTime: new Date().toISOString(),
+        }),
+      });
+
+      // const data = await res.json();
+
+      // if (!res.ok) {
+      //   throw new Error(data.message || "Check-in failed");
+      // }
+
+      alert("✅ Checked Out successfully");
+      setIsCheckedIn(false);
+
+      // optional: update UI state
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
+  };
+
   return (
     <>
       <div className="space-y-6 p-3">
@@ -229,22 +294,27 @@ export default function EmployeeDashboard() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {/* ✅ Check In */}
-            <button
-              onClick={() => handleCheckIn()}
-              className="bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-xl transition"
-            >
-              Check In
-            </button>
+            <div className="flex gap-3">
+              {/* ✅ Check In */}
+              {!isCheckedIn && (
+                <button
+                  onClick={handleCheckIn}
+                  className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-4 py-2 rounded-xl transition hover:opacity-90"
+                >
+                  Check In
+                </button>
+              )}
 
-            {/* ❌ Check Out */}
-            <button
-              onClick={() => handleCheckOut()}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-xl transition"
-            >
-              Check Out
-            </button>
-
+              {/* ❌ Check Out */}
+              {isCheckedIn && (
+                <button
+                  onClick={handleCheckOut}
+                  className="bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33] font-semibold px-4 py-2 rounded-xl transition hover:opacity-90"
+                >
+                  Check Out
+                </button>
+              )}
+            </div>  
             {/* ➕ Create Leave */}
             <button
               onClick={() => setOpen(true)}

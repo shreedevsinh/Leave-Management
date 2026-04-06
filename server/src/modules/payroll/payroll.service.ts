@@ -25,7 +25,6 @@ export class PayrollService {
     const currentYear = now.getFullYear();
 
     // if (month === currentMonth && year === currentYear) {
-    console.log('Fetching current month payroll');
     let workingDays = 0;
 
     // JS month is 0-based → so month - 1
@@ -112,8 +111,6 @@ export class PayrollService {
         ),
       };
     });
-
-    console.log('Payroll with leave count:', payroll);
 
     return payroll;
     // } else if (

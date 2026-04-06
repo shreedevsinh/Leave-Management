@@ -8,6 +8,8 @@ import { UsersModule } from './modules/users/users.module';
 import { LeavesModule } from './modules/leaves/leaves.module';
 import { LeaveTypesModule } from './modules/leave-types/leave-types.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { OfficetimeModule } from './modules/officetime/officetime.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { PayrollModule } from './modules/payroll/payroll.module';
     LeavesModule,
     LeaveTypesModule,
     PayrollModule,
+    AttendanceModule,
+    OfficetimeModule,
   ],
 })
 export class AppModule {}

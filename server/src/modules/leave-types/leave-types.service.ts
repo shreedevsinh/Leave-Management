@@ -14,7 +14,7 @@ export class LeaveTypesService {
   constructor(
     private prisma: PrismaService,
     private dynamo: DynamoService,
-  ) {}
+  ) { }
 
   async getAllLeaveTypes() {
     try {
