@@ -1,19 +1,24 @@
-import { Controller, Get, Post, Put } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Query } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) { }
-  //   @Get()
-  //   getMonthlyAttendance() {
-  //     return this.attendanceService.getMonthlyAttendance(query.month, query.year);
-  //   }
+  constructor(private readonly attendanceService: AttendanceService) {}
+
   @Post('check-in')
-  checkIn() {
-    return this.attendanceService.checkIn();
+  checkIn(@Body() body: { userId: string; checkInTime: Date }) {
+    console.log('📥 CheckIn request received:', body);
+    return this.attendanceService.checkIn(body);
   }
+
   @Put('check-out')
-  checkOut() {
-    return this.attendanceService.checkOut();
+  checkOut(@Body() body: { userId: string; checkOutTime: Date }) {
+    console.log('📥 CheckOut request received:', body);
+    return this.attendanceService.checkOut(body);
+  }
+
+  @Get('todays-attendance')
+  getTodaysAttendance(@Query('userId') userId: string) {
+    return this.attendanceService.getTodaysAttendance(userId);
   }
 }

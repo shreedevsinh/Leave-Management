@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  PutCommand,
+  ScanCommand,
+  UpdateCommand,
+  DeleteCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -32,21 +37,20 @@ export class OfficetimeService {
       createdAt: new Date().toISOString(),
     };
 
-    // Store original active items for rollback
     let originalDynamoItems: any[] = [];
     let originalPrismaActiveItems: string[] = [];
 
-    try {
-      // --------------------------
-      // DynamoDB Operations
-      // --------------------------
+    // --------------------------
+    // Helpers
+    // --------------------------
+
+    const deactivateDynamoItems = async () => {
       const scanResult = await client.send(
         new ScanCommand({ TableName: this.tableName }),
       );
       const items = scanResult.Items || [];
-      originalDynamoItems = [...items]; // Save for rollback
+      originalDynamoItems = [...items];
 
-      // Deactivate all existing
       await Promise.all(
         items.map((item) =>
           client.send(
@@ -59,28 +63,27 @@ export class OfficetimeService {
           ),
         ),
       );
+    };
 
-      // Insert new item
+    const createDynamoItem = async () => {
       await client.send(
         new PutCommand({
           TableName: this.tableName,
           Item: newItem,
         }),
       );
+    };
 
-      // --------------------------
-      // Prisma Operations
-      // --------------------------
-      const activePrismaItems = await this.prisma.officeTiming.findMany({
+    const deactivatePrismaItems = async () => {
+      const activeItems = await this.prisma.officeTiming.findMany({
         where: { isActive: true },
         select: { id: true },
       });
-      originalPrismaActiveItems.push(...activePrismaItems.map((i) => i.id));
-
-      // Deactivate all in Prisma
+      originalPrismaActiveItems.push(...activeItems.map((i) => i.id));
       await this.prisma.officeTiming.updateMany({ data: { isActive: false } });
+    };
 
-      // Create new in Prisma
+    const createPrismaItem = async () => {
       await this.prisma.officeTiming.create({
         data: {
           id: newItem.id,
@@ -92,20 +95,12 @@ export class OfficetimeService {
           createdAt: new Date(newItem.createdAt),
         },
       });
+    };
 
-      console.log(
-        '✅ All set inactive + new item created in DynamoDB & Prisma',
-      );
-      return newItem;
-    } catch (error) {
-      console.error('❌ Error creating office timing:', error);
-
-      // --------------------------
-      // ROLLBACK
-      // --------------------------
+    const rollback = async () => {
       try {
-        // Rollback DynamoDB changes
-        if (originalDynamoItems.length > 0) {
+        // Dynamo rollback
+        if (originalDynamoItems.length) {
           await Promise.all(
             originalDynamoItems.map((item) =>
               client.send(
@@ -118,32 +113,43 @@ export class OfficetimeService {
               ),
             ),
           );
-
-          // Remove the newly added item if it exists
           await client.send(
-            new UpdateCommand({
+            new DeleteCommand({
               TableName: this.tableName,
               Key: { id: newItem.id },
-              UpdateExpression: 'REMOVE id', // or delete via DeleteCommand if needed
             }),
           );
         }
 
-        // Rollback Prisma changes
-        if (originalPrismaActiveItems.length > 0) {
+        // Prisma rollback
+        if (originalPrismaActiveItems.length) {
           await this.prisma.officeTiming.updateMany({
             where: { id: { in: originalPrismaActiveItems } },
             data: { isActive: true },
           });
-          // Remove newly created item
           await this.prisma.officeTiming.delete({ where: { id: newItem.id } });
         }
-      } catch (rollbackError) {
-        console.error('❌ Error during rollback:', rollbackError);
+      } catch (err) {
+        console.error('❌ Rollback failed:', err);
       }
+    };
 
+    // --------------------------
+    // Main try/catch
+    // --------------------------
+    try {
+      await deactivateDynamoItems();
+      await createDynamoItem();
+      await deactivatePrismaItems();
+      await createPrismaItem();
+
+      console.log('✅ Office timing created in both DynamoDB & Prisma');
+      return newItem;
+    } catch (error) {
+      console.error('❌ Error creating office timing:', error);
+      await rollback();
       throw new Error(
-        'Failed to create office timing. Changes have been rolled back.',
+        'Failed to create office timing. All changes rolled back.',
       );
     }
   }

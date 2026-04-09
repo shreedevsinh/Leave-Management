@@ -51,6 +51,7 @@ model User {
 
   refreshToken String?
   isActive     Boolean @default(true)
+  isHourly     Boolean @default(false)
 
   joinDate String
 
@@ -171,8 +172,8 @@ model Payroll {
 model OfficeTiming {
   id String @id @default(uuid())
 
-  startTime String
-  endTime   String
+  startTime DateTime
+  endTime   DateTime
 
   workingHours Float 
 

@@ -128,6 +128,23 @@ function Employee() {
     if (loading) return <div>Loading employees...</div>;
     if (error) return <div>Error: {error}</div>;
 
+    const toggleHourly = (id: string, isHourly: boolean) => {
+        console.log(id);
+        console.log(isHourly);
+        fetch(`http://localhost:3000/users/${id}/salary-type`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isHourly }),
+        })
+            .then((res) => res.json())
+            .then((data) => console.log(data))
+            .catch((error) => console.error("Error updating hourly:", error));
+        setEmployees((prev) =>
+            prev.map((emp) =>
+                emp.id === id ? { ...emp, isHourly } : emp
+            )
+        );
+    };
     return (
         <div className="min-h-screen text-white p-3">
 
@@ -156,12 +173,13 @@ function Employee() {
 
             {/* Employee Table */}
             <div className="bg-[#132033]/70 backdrop-blur-lg border border-[#2a3a55] rounded-2xl p-6 shadow-lg">
-                <div className="grid grid-cols-7 text-gray-400 text-sm mb-4 px-2">
+                <div className="grid grid-cols-8 text-gray-400 text-sm mb-4 px-2">
                     <span>Name</span>
                     <span>Email</span>
                     <span>Role</span>
                     <span>Mobile</span>
                     <span>Salary</span>
+                    <span>Is Hourly</span>
                     <span>Active</span>
                     <span className="text-right">Actions</span>
                 </div>
@@ -172,7 +190,7 @@ function Employee() {
                         .map((emp) => (
                             <div
                                 key={emp.id}
-                                className="grid grid-cols-7 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
+                                className="grid grid-cols-8 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
                             >
                                 <span className="font-medium">{emp.name}</span>
                                 <span className="text-gray-300 truncate max-w-[200px] block pr-2">
@@ -184,6 +202,18 @@ function Employee() {
                                     <IndianRupee className="inline-block mr-1" size={16} />
                                     {emp.salary?.baseSalary}
                                 </span>
+                                <button
+                                    onClick={() => toggleHourly(emp.id, !emp.isHourly)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${emp.isHourly
+                                            ? "bg-gradient-to-r from-green-400 to-teal-400"
+                                            : "bg-gray-600"
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${emp.isHourly ? "translate-x-6" : "translate-x-1"
+                                            }`}
+                                    />
+                                </button>
                                 <span>
                                     <span
                                         className={`px-2 py-1 rounded-full text-sm font-medium ${emp.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"

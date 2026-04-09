@@ -61,6 +61,7 @@ export class UsersService {
             isActive: data.isActive ?? true,
             joinDate: data.joinDate.toString(),
             salary: data.salary,
+            isHourly: false,
             createdAt: now,
             updatedAt: now,
           },
@@ -119,6 +120,7 @@ export class UsersService {
           password: hashedPassword,
           role: data.role,
           isActive: data.isActive ?? true,
+          isHourly: false,
           joinDate: data.joinDate.toString(),
         },
       });
@@ -453,6 +455,35 @@ export class UsersService {
     }
   }
 
+  async updateUserSalaryType(id: string, isHourly: boolean) {
+    console.log(
+      `Updating salary type for user ${id} to ${isHourly ? 'Hourly' : 'Daily'}`,
+    );
+    try {
+      await this.dynamo.getClient().send(
+        new UpdateCommand({
+          TableName: 'Users',
+          Key: { id },
+          UpdateExpression: 'SET isHourly = :isHourly',
+          ExpressionAttributeValues: {
+            ':isHourly': isHourly,
+          },
+        }),
+      );
+
+      await this.prisma.user.update({
+        where: { id },
+        data: {
+          isHourly: isHourly,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException('Failed to update salary type');
+    }
+    return true;
+  }
+
   async findByEmail(email: string) {
     try {
       const result = await this.dynamo.getClient().send(
@@ -536,6 +567,7 @@ export class UsersService {
           mobile: u.mobile,
           role: u.role,
           isActive: u.isActive,
+          isHourly: u.isHourly,
           salary: salary
             ? {
                 id: salary.id,

@@ -216,67 +216,72 @@ export default function EmployeeDashboard() {
   ];
 
   // 
-  const handleCheckIn = async () => {
+  const handleAttendance = async () => {
     try {
-      const token = localStorage.getItem("token"); // or cookies
+      const token = localStorage.getItem("token");
+      const url = isCheckedIn
+        ? "http://localhost:3000/attendance/check-out"
+        : "http://localhost:3000/attendance/check-in";
 
-      const res = await fetch("http://localhost:3000/attendance/check-in", {
-        method: "POST",
+      const body = JSON.stringify({
+        [isCheckedIn ? "checkOutTime" : "checkInTime"]: new Date().toISOString(),
+        userId: userId,
+      });
+
+      const res = await fetch(url, {
+        method: isCheckedIn ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          checkInTime: new Date().toISOString(),
-        }),
+        body,
       });
 
-      // // const data = await res.json();
+      if (!res.ok) throw new Error("Attendance action failed");
 
-      // if (!res.ok) {
-      //   throw new Error(data.message || "Check-in failed");
-      // }
-
-      alert("✅ Checked in successfully");
-
-      // optional: update UI state
-      setIsCheckedIn(true);
-
-    } catch (error) {
+      alert(
+        isCheckedIn ? "✅ Checked Out successfully" : "✅ Checked In successfully"
+      );
+      setIsCheckedIn(!isCheckedIn); // toggle state
+    } catch (error: any) {
       console.error(error);
       alert(error.message);
     }
   };
-  const handleCheckOut = async () => {
+
+  const checkAttendanceStatus = async () => {
+    console.log("Checking today's attendance status for user:", userId);
     try {
-      const token = localStorage.getItem("token"); // or cookies
+      const res = await fetch(
+        `http://localhost:3000/attendance/todays-attendance?userId=${userId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      const res = await fetch("http://localhost:3000/attendance/check-out", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          checkOutTime: new Date().toISOString(),
-        }),
-      });
+      const data = await res.json();
+      console.log("Today's attendance data:", data);
 
-      // const data = await res.json();
+      if (data && data.checkIn && !data.checkOut) {
+        setIsCheckedIn(true);
+      } else {
+        setIsCheckedIn(false);
+      }
 
-      // if (!res.ok) {
-      //   throw new Error(data.message || "Check-in failed");
-      // }
+      console.log("User is currently:", isCheckedIn ? "Checked In" : "Checked Out");
 
-      alert("✅ Checked Out successfully");
-      setIsCheckedIn(false);
-
-      // optional: update UI state
-    } catch (error) {
-      console.error(error);
-      alert(error.message);
+    } catch (err) {
+      console.error("Error fetching attendance status:", err);
     }
   };
+
+  useEffect(() => {
+    checkAttendanceStatus();
+  }, []);
 
   return (
     <>
@@ -295,26 +300,17 @@ export default function EmployeeDashboard() {
 
           <div className="flex flex-wrap gap-3">
             <div className="flex gap-3">
-              {/* ✅ Check In */}
-              {!isCheckedIn && (
-                <button
-                  onClick={handleCheckIn}
-                  className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-4 py-2 rounded-xl transition hover:opacity-90"
-                >
-                  Check In
-                </button>
-              )}
-
-              {/* ❌ Check Out */}
-              {isCheckedIn && (
-                <button
-                  onClick={handleCheckOut}
-                  className="bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33] font-semibold px-4 py-2 rounded-xl transition hover:opacity-90"
-                >
-                  Check Out
-                </button>
-              )}
-            </div>  
+              <button
+                onClick={handleAttendance}
+                className={`px-4 py-2 rounded-xl font-semibold transition
+                  ${isCheckedIn
+                    ? "bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33]"
+                    : "bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33]"
+                  } hover:opacity-90`}
+              >
+                {isCheckedIn ? "Check Out" : "Check In"}
+              </button>
+            </div>
             {/* ➕ Create Leave */}
             <button
               onClick={() => setOpen(true)}

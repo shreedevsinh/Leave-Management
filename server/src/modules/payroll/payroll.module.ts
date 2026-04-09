@@ -8,5 +8,6 @@ import { DynamoModule } from 'src/dynamo/dynamo.module';
   imports: [PrismaModule, DynamoModule],
   controllers: [PayrollController],
   providers: [PayrollService],
+  exports: [PayrollService],
 })
 export class PayrollModule {}

@@ -10,4 +10,9 @@ export class PayrollController {
   getMonthlyPayroll(@Query() query: GetPayrollDto) {
     return this.payrollService.getMonthlyPayroll(query.month, query.year);
   }
+
+  @Get('generate')
+  generateMonthlyPayroll(@Query() query: GetPayrollDto) {
+    return this.payrollService.generateMonthlyPayroll(query.month, query.year);
+  }
 }

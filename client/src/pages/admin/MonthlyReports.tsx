@@ -31,71 +31,6 @@ export default function MonthlyReports() {
 
   const [search, setSearch] = useState("");
 
-  // 🧪 Dummy Data Generator (based on your schema)
-  const generateDummyData = (): Payroll[] => {
-    return [
-      {
-        id: "1",
-        month,
-        year,
-        totalDays: 30,
-        workingDays: 22,
-        leaveDays: 2,
-        payableDays: 20,
-        baseSalary: 50000,
-        finalSalary: 45454,
-        user: {
-          name: "Pragneysh Dekate",
-          email: "pragneysh@company.com",
-        },
-      },
-      {
-        id: "2",
-        month,
-        year,
-        totalDays: 30,
-        workingDays: 22,
-        leaveDays: 0,
-        payableDays: 22,
-        baseSalary: 60000,
-        finalSalary: 60000,
-        user: {
-          name: "Amit Shah",
-          email: "amit@company.com",
-        },
-      },
-      {
-        id: "3",
-        month,
-        year,
-        totalDays: 30,
-        workingDays: 22,
-        leaveDays: 5,
-        payableDays: 17,
-        baseSalary: 45000,
-        finalSalary: 34772,
-        user: {
-          name: "Neha Patel",
-          email: "neha@company.com",
-        },
-      },
-      {
-        id: "4",
-        month,
-        year,
-        totalDays: 30,
-        workingDays: 22,
-        leaveDays: 1,
-        payableDays: 21,
-        baseSalary: 70000,
-        finalSalary: 66818,
-        user: {
-          name: "Rahul Mehta",
-          email: "rahul@company.com",
-        },
-      },
-    ];
-  };
 
   // 🔥 Fetch (fallback to dummy)
   useEffect(() => {
@@ -108,9 +43,11 @@ export default function MonthlyReports() {
         const res = await fetch(`http://localhost:3000/payroll?month=${month}&year=${year}`);
         const json = await res.json();
 
+        console.log(json);
+
 
         // 👉 Fallback dummy data
-        const dummy = generateDummyData();
+        const dummy = json;
 
         // simulate API delay
         setTimeout(() => {
@@ -129,7 +66,7 @@ export default function MonthlyReports() {
 
   // 🔍 Filter
   const filtered = data.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase())
+    item.user.name.toLowerCase().includes(search.toLowerCase())
   );
 
   // 📊 Summary
@@ -138,7 +75,13 @@ export default function MonthlyReports() {
     0
   );
 
-  const totalEmployees = filtered.length;
+  // const totalEmployees = filtered.length;
+
+  // 💰 Generate Payroll (dummy)
+  const generatePayroll = async () => {
+    const response = await fetch(`http://localhost:3000/payroll/generate?month=${month}&year=${year}`);
+    alert(await response.text());
+  }
 
   return (
     <div className="p-3 space-y-6 text-white">
@@ -170,6 +113,13 @@ export default function MonthlyReports() {
             onChange={(e) => setYear(Number(e.target.value))}
             className="w-24 bg-[#13263f] border border-white/10 px-3 py-2 rounded-xl"
           />
+
+          <button
+            onClick={generatePayroll}
+            className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-5 py-2.5 rounded-xl font-bolder"
+          >
+            Generate Payroll
+          </button>
         </div>
       </div>
 
@@ -178,7 +128,7 @@ export default function MonthlyReports() {
         <div className="bg-[#13263f]/70 backdrop-blur-xl p-4 rounded-2xl border border-white/10">
           <p className="text-sm text-gray-400">Employees</p>
           <h2 className="text-xl font-semibold">
-            {totalEmployees}
+            {/* {totalEmployees} */}
           </h2>
         </div>
 
@@ -250,26 +200,26 @@ export default function MonthlyReports() {
                   <td className="p-4">
                     <div>
                       <p className="font-medium">
-                        {p.name}
+                        {p.user.name}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {p.email}
+                        {p.user.email}
                       </p>
                     </div>
                   </td>
 
                   <td className="p-4">{p.workingDays}</td>
                   <td className="p-4 text-yellow-400">
-                    {p.leaveCount}
+                    {p.leaveDays}
                   </td>
                   <td className="p-4 text-green-400">
-                    {p.totalDays}
+                    {p.paidDays}   
                   </td>
                   <td className="p-4">
                     ₹{p.baseSalary}
                   </td>
                   <td className="p-4 font-semibold text-blue-400">
-                    ₹{p.finalSalary}
+                     ₹ {p.salary}
                   </td>
                 </tr>
               ))

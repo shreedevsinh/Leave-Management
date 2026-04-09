@@ -33,6 +33,14 @@ export class UsersController {
     return this.usersService.updateUserNameEmail(String(id), body);
   }
 
+  @Put('/:id/salary-type')
+  async updateUserSalaryType(
+    @Param('id') id: string,
+    @Body() body: { isHourly: boolean },
+  ) {
+    return this.usersService.updateUserSalaryType(String(id), body.isHourly);
+  }
+
   @Get('/employees/')
   async getEmployees() {
     return this.usersService.getEmployees();

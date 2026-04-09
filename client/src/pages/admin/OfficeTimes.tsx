@@ -16,19 +16,20 @@ export default function OfficeTimes() {
 
 
     // ✅ Fetch data from API
+    const fetchTimings = async () => {
+        try {
+            const res = await fetch("http://localhost:3000/officetime");
+            if (!res.ok) throw new Error("Failed to fetch office timings");
+
+            const data: OfficeTiming[] = await res.json();
+            setTimings(data);
+        } catch (err) {
+            console.error("❌ Fetch error:", err);
+        }
+    };
+
+    // ✅ Call on mount
     useEffect(() => {
-        const fetchTimings = async () => {
-            try {
-                const res = await fetch("http://localhost:3000/officetime");
-                if (!res.ok) throw new Error("Failed to fetch office timings");
-
-                const data: OfficeTiming[] = await res.json();
-                setTimings(data);
-            } catch (err) {
-                console.error("❌ Fetch error:", err);
-            }
-        };
-
         fetchTimings();
     }, []);
 
@@ -84,43 +85,61 @@ export default function OfficeTimes() {
         return Object.values(newErrors).every((e) => !e);
     };
 
-    const convertTo24Hour = (time: string) => {
-        if (!time) return null;
+    const convertToISODateTime = (time12h: string) => {
+        const [time, modifier] = time12h.split(" ");
+        let [hours, minutes] = time.split(":").map(Number);
 
-        const [timePart, period] = time.split(" "); // "09:00 AM"
-        let [hours, minutes] = timePart.split(":").map(Number);
+        if (modifier === "PM" && hours !== 12) hours += 12;
+        if (modifier === "AM" && hours === 12) hours = 0;
 
-        if (period === "PM" && hours !== 12) hours += 12;
-        if (period === "AM" && hours === 12) hours = 0;
+        // 👉 Create LOCAL (IST) date
+        const localDate = new Date(1970, 0, 1, hours, minutes, 0);
 
-        return hours * 60 + minutes;
+        // 👉 Convert to UTC ISO
+        return localDate.toISOString();
     };
 
-    const calculateWorkingHours = (start: string, end: string) => {
-        if (!start || !end) return "";
+    const setWorkingHours = (start: string, end: string) => {
+        const startDate = new Date(convertToISODateTime(start));
+        const endDate = new Date(convertToISODateTime(end));
+        const diffMs = endDate.getTime() - startDate.getTime();
+        return diffMs / (1000 * 60 * 60); // convert ms to hours
+    };
 
-        const startMinutes = convertTo24Hour(start);
-        const endMinutes = convertTo24Hour(end);
+    useEffect(() => {
+        const startDateTime = form.startTime ? new Date(convertToISODateTime(form.startTime)) : null;
+        const endDateTime = form.endTime ? new Date(convertToISODateTime(form.endTime)) : null;
+        if (startDateTime && endDateTime) {
+            setForm((prevForm) => ({
+                ...prevForm,
+                workingHours: setWorkingHours(form.startTime, form.endTime),
+            }));
+        }
+    }, [form.startTime, form.endTime]);
 
-        if (startMinutes === null || endMinutes === null) return "";
+    const formatPlainTime = (isoString: string) => {
+        const date = new Date(isoString);
 
-        let diff = endMinutes - startMinutes;
-
-        if (diff < 0) diff += 24 * 60; // overnight support
-
-        return (diff / 60).toFixed(2);
+        return date.toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        });
     };
 
     const handleCreate = async () => {
         if (!validate()) return;
 
         const newTiming = {
-            startTime: form.startTime,
-            endTime: form.endTime,
+            startTime: convertToISODateTime(form.startTime),
+            endTime: convertToISODateTime(form.endTime),
             workingHours: Number(form.workingHours),
             graceMinutes: Number(form.graceMinutes),
             isActive: false,
         };
+
+        console.log("Creating timing:", newTiming);
 
         try {
             const res = await fetch("http://localhost:3000/officetime", {
@@ -135,13 +154,11 @@ export default function OfficeTimes() {
 
             if (!res.ok) {
                 throw new Error(data.message || "Failed to create timing");
+            } else {
+                fetchTimings();
+                resetForm();
+                setOpen(false);
             }
-
-            // ✅ Add returned data (better than local object)
-            setTimings((prev) => [...prev, data]);
-
-            setOpen(false);
-            resetForm();
 
         } catch (error: any) {
             console.error("Error:", error.message);
@@ -203,7 +220,7 @@ export default function OfficeTimes() {
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="font-medium flex items-center gap-2 text-lg">
                                 <Clock size={18} />
-                                {t.startTime} - {t.endTime}
+                                {formatPlainTime(t.startTime)} - {formatPlainTime(t.endTime)}
                             </h2>
 
                             {t.isActive && (
@@ -270,18 +287,7 @@ export default function OfficeTimes() {
                                     onClose={() => setActivePicker(null)}
                                     onChange={(val) => {
                                         const updatedForm = { ...form, startTime: val };
-
-                                        const workingHours = calculateWorkingHours(
-                                            updatedForm.startTime,
-                                            updatedForm.endTime
-                                        );
-
-                                        setForm({
-                                            ...updatedForm,
-                                            workingHours,
-                                        });
-
-                                        setErrors({ ...errors, startTime: "" });
+                                        setForm(updatedForm);
                                     }}
                                 />
                                 <Clock className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -299,18 +305,7 @@ export default function OfficeTimes() {
                                     onClose={() => setActivePicker(null)}
                                     onChange={(val) => {
                                         const updatedForm = { ...form, endTime: val };
-
-                                        const workingHours = calculateWorkingHours(
-                                            updatedForm.startTime,
-                                            updatedForm.endTime
-                                        );
-
-                                        setForm({
-                                            ...updatedForm,
-                                            workingHours,
-                                        });
-
-                                        setErrors({ ...errors, endTime: "" });
+                                        setForm(updatedForm);
                                     }}
                                 />
                                 <Clock className="absolute left-3 top-3 text-gray-400" size={18} />
