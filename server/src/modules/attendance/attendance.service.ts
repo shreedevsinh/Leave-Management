@@ -44,21 +44,15 @@ export class AttendanceService {
       : new Date();
     let attendanceId: string | null = null;
 
-    console.log('🟢 CheckIn started for user:', body.userId);
-    console.log('📅 Today:', today);
-
     // Validate
     if (isNaN(checkInTime.getTime())) {
       throw new BadRequestException('Invalid check-in time');
     }
 
-    console.log('⏰ CheckIn time:', checkInTime.toISOString());
-
     try {
       // --------------------------
       // 1️⃣ Check if already checked in
       // --------------------------
-      console.log('🔍 Checking existing attendance...');
       const existingResult = await dynamoClient.send(
         new QueryCommand({
           TableName: 'Attendance',
@@ -72,8 +66,6 @@ export class AttendanceService {
         }),
       );
 
-      console.log('🔹 Existing attendance count:', existingResult.Count);
-
       if (existingResult.Count && existingResult.Count > 0) {
         await this.dynamo.getClient().send(
           new UpdateCommand({
@@ -83,14 +75,9 @@ export class AttendanceService {
             ExpressionAttributeValues: { ':co': null },
           }),
         );
-        console.log('🔄 Existing attendance updated with new check-out time');
         return { ...existingResult.Items?.[0], checkOut: null };
       }
 
-      // --------------------------
-      // 2️⃣ Get active office timing from DynamoDB
-      // --------------------------
-      console.log('🔍 Fetching active office timing...');
       const officeTimingResult = await dynamoClient.send(
         new ScanCommand({
           TableName: 'OfficeTiming',
@@ -102,20 +89,8 @@ export class AttendanceService {
       if (!officeTimingResult.Items || officeTimingResult.Items.length === 0)
         throw new NotFoundException('Active office timing not found');
 
-      console.log(
-        '🔹 Office timing items found:',
-        officeTimingResult.Items?.length,
-      );
-
-      if (!officeTimingResult.Items || officeTimingResult.Items.length === 0)
-        throw new NotFoundException('Active office timing not found');
-
       const officeTiming = officeTimingResult.Items[0];
-      console.log('🕑 Using office timing ID:', officeTiming.id);
 
-      // --------------------------
-      // 3️⃣ Create attendance
-      // --------------------------
       attendanceId = uuidv4();
       const attendance = {
         id: attendanceId,
@@ -126,7 +101,6 @@ export class AttendanceService {
         status: 'PRESENT',
       };
 
-      console.log('💾 Creating attendance record with ID:', attendanceId);
       await dynamoClient.send(
         new PutCommand({
           TableName: 'Attendance',
@@ -135,7 +109,6 @@ export class AttendanceService {
         }),
       );
 
-      console.log('✅ Attendance successfully created');
       return attendance;
     } catch (error) {
       console.error('❌ Error during check-in:', error);
@@ -249,15 +222,10 @@ export class AttendanceService {
 
       let lateHours = 0;
 
-      console.log('⏳ Check-in time:', checkIn.getTime());
-      console.log('⏳ Office start time:', officeStart.getTime());
-
       // ✅ Late Hours
       if (checkIn.getTime() > startTimeRaw.getTime()) {
         lateHours = (checkIn.getTime() - officeStart.getTime()) / 3600000;
       }
-
-      console.log('⏳ Calculated late hours before grace:', lateHours);
 
       // Apply grace
       if (lateHours > 0 && lateHours * 60 <= graceMinutes) {
@@ -266,16 +234,11 @@ export class AttendanceService {
         lateHours = Math.max(0, lateHours);
       }
 
-      console.log('⏳ Check-out time:', checkOut.getTime());
-      console.log('⏳ Office end time:', officeEnd.getTime());
-
       // ✅ Early Leave
       const earlyLeave = Math.max(
         0,
         (officeEnd.getTime() - checkOut.getTime()) / (1000 * 60 * 60),
       );
-
-      console.log('⏳ Calculated early leave hours:', earlyLeave);
 
       // ✅ Overtime
       const overtimeHours = Math.max(0, actualWorkedHours - officeHours);
@@ -294,14 +257,6 @@ export class AttendanceService {
       } else {
         status = 'PRESENT';
       }
-
-      console.log('📊 Attendance calculations:', {
-        actualWorkedHours: round(actualWorkedHours),
-        lateHours: round(lateHours),
-        earlyLeave: round(earlyLeave),
-        overtimeHours: round(overtimeHours),
-        status,
-      });
 
       // 4️⃣ Update DynamoDB
       await dynamoClient.send(
@@ -329,24 +284,6 @@ export class AttendanceService {
           },
         }),
       );
-
-      // 5️⃣ Update Prisma
-      const prismaRecord = await this.prisma.attendance.findUnique({
-        where: { id: attendanceId },
-      });
-
-      if (prismaRecord) {
-        await this.prisma.attendance.update({
-          where: { id: attendanceId },
-          data: {
-            checkOut,
-            workingHours: round(actualWorkedHours),
-            lateHours: round(lateHours),
-            earlyLeave: round(earlyLeave),
-            overtimeHours: round(overtimeHours),
-          },
-        });
-      }
 
       // await this.payrollService.updateMonthlyPayroll(attendance.userId, attendance.date);
 

@@ -14,7 +14,7 @@ export class LeaveTypesService {
   constructor(
     private prisma: PrismaService,
     private dynamo: DynamoService,
-  ) { }
+  ) {}
 
   async getAllLeaveTypes() {
     try {
@@ -51,35 +51,37 @@ export class LeaveTypesService {
     }
   }
 
-  // async getAllLeaveTypes() {
-  //   const leaveTypes = await this.prisma.leaveType.findMany({
-  //     include: {
-  //       balances: true,
-  //     },
-  //   });
-  //   return leaveTypes;
-  // }
-
-
   async createLeaveType(data: CreateLeaveTypeDto) {
     const { name, maxPerYear, isPaid } = data;
     const parsedMax = Number(maxPerYear);
-
-    // Check duplicate in RDS (optional but recommended)
-    const existing = await this.prisma.leaveType.findUnique({
-      where: { name },
-    });
-
-    if (existing) {
-      throw new BadRequestException('Leave type already exists');
-    }
 
     // ✅ Generate ID manually (important)
     const id = uuidv4(); // or use uuid()
 
     try {
+      const existingType = await this.dynamo.getClient().send(
+        new ScanCommand({
+          TableName: 'LeaveTypes',
+          FilterExpression: '#name = :name',
+          ExpressionAttributeNames: {
+            '#name': 'name',
+          },
+          ExpressionAttributeValues: {
+            ':name': name,
+          },
+        }),
+      );
+
+      const count = existingType.Count ?? 0;
+
+      if (count > 0) {
+        throw new BadRequestException(
+          `Leave type with name '${name}' already exists`,
+        );
+      }
+
       // ✅ 1. Create in DynamoDB FIRST
-      await this.dynamo.getClient().send(
+      const type = await this.dynamo.getClient().send(
         new PutCommand({
           TableName: 'LeaveTypes',
           Item: {
@@ -91,28 +93,9 @@ export class LeaveTypesService {
         }),
       );
 
-      // ✅ 2. Then create in RDS
-      const type = await this.prisma.leaveType.create({
-        data: {
-          id: String(id), // if your DB expects number
-          name,
-          maxPerYear: parsedMax,
-          isPaid,
-        },
-      });
-
       return type;
     } catch (err) {
       console.error(err);
-
-      // 🔥 Optional rollback (VERY IMPORTANT)
-      await this.dynamo.getClient().send(
-        new DeleteCommand({
-          TableName: 'LeaveTypes',
-          Key: { id },
-        }),
-      );
-
       throw new InternalServerErrorException('Failed to create leave type');
     }
   }

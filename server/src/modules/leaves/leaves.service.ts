@@ -185,37 +185,22 @@ export class LeavesService {
 
   // ✅ Create Leave
   async createLeave(data: CreateLeaveDto) {
-    console.log('🚀 createLeave called with data:', JSON.stringify(data));
-
     const { userId, typeId, startDate, endDate, reason, status } = data;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-
-    console.log('📅 Parsed Dates:', {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    });
-
     if (end < start) {
       console.error('❌ Invalid date range');
       throw new BadRequestException('End date cannot be before start date');
     }
 
     const segments = this.splitLeaveByYear(start, end);
-    console.log('🧩 Segments:', JSON.stringify(segments));
 
     const dynamoClient = this.dynamo.getClient();
-    console.log('📦 Dynamo client initialized');
 
     const createdLeaves: any[] = [];
 
     try {
-      // ====================================
-      // ✅ 1. Check overlap
-      // ====================================
-      console.log('🔍 Checking overlap in Dynamo...');
-
       const overlapRes = await dynamoClient.send(
         new ScanCommand({
           TableName: 'Leaves',
@@ -237,23 +222,13 @@ export class LeavesService {
         }),
       );
 
-      console.log('🔍 Overlap result:', JSON.stringify(overlapRes.Items));
-
       if (overlapRes.Items?.length) {
         console.error('❌ Leave overlap detected');
         throw new BadRequestException('Leave already exists');
       }
 
-      // ====================================
-      // ✅ 2. Create leaves in Dynamo
-      // ====================================
-      console.log('🛠 Creating leaves in Dynamo...');
-
       for (const segment of segments) {
-        console.log('➡️ Processing segment:', JSON.stringify(segment));
-
         const days = this.calculateDays(segment.start, segment.end);
-        console.log('📊 Calculated days:', days);
 
         const splits = await this.resolveLeaveSplitDynamo(
           userId,
@@ -261,8 +236,6 @@ export class LeavesService {
           segment.year,
           days,
         );
-
-        console.log('🔀 Leave splits:', JSON.stringify(splits));
 
         for (const split of splits) {
           const leaveId = uuidv4();
@@ -280,8 +253,6 @@ export class LeavesService {
             updatedAt: new Date().toISOString(),
           };
 
-          console.log('📤 Putting item to Dynamo:', JSON.stringify(item));
-
           await dynamoClient.send(
             new PutCommand({
               TableName: 'Leaves',
@@ -296,41 +267,9 @@ export class LeavesService {
       }
 
       // ====================================
-      // ✅ 3. Sync to RDS
-      // ====================================
-      console.log('🔄 Syncing to RDS...');
-
-      try {
-        await Promise.all(
-          createdLeaves.map((leave) => {
-            console.log('📥 Syncing leave to RDS:', leave.id);
-
-            return this.prisma.leave.create({
-              data: {
-                id: leave.id,
-                userId: leave.userId,
-                typeId: leave.typeId,
-                startDate: new Date(leave.startDate),
-                endDate: new Date(leave.endDate),
-                totalDays: leave.totalDays,
-                reason: leave.reason,
-                status: leave.status,
-              },
-            });
-          }),
-        );
-
-        console.log('✅ RDS sync completed');
-      } catch (err) {
-        console.error('❌ RDS sync failed:', err);
-      }
-
-      // ====================================
       // ✅ 4. Auto approve
       // ====================================
       if (status === 'APPROVED') {
-        console.log('⚡ Auto-approving leaves...');
-
         for (const leave of createdLeaves) {
           console.log('✅ Approving leave:', leave.id);
 
@@ -341,34 +280,9 @@ export class LeavesService {
         }
       }
 
-      console.log(
-        '🎉 Leave creation successful:',
-        JSON.stringify(createdLeaves),
-      );
-
       return createdLeaves;
     } catch (error: any) {
       console.error('🔥 ERROR in createLeave:', error);
-
-      // ====================================
-      // ❗ Rollback Dynamo
-      // ====================================
-      console.log('↩️ Rolling back Dynamo entries...');
-
-      await Promise.all(
-        createdLeaves.map((l) => {
-          console.log('🗑 Deleting item:', l.id);
-
-          return dynamoClient.send(
-            new DeleteCommand({
-              TableName: 'Leaves',
-              Key: { id: l.id },
-            }),
-          );
-        }),
-      );
-
-      console.log('✅ Rollback completed');
 
       throw new InternalServerErrorException(
         error?.message || 'Failed to create leave',
@@ -856,115 +770,6 @@ export class LeavesService {
       // 4. SYNC RDS
       // ====================================
       let updatedLeave;
-
-      try {
-        updatedLeave = await this.prisma.leave.update({
-          where: { id },
-          data: {
-            status: body.status,
-            approvedBy: body.approvedBy,
-            rejectionReason: body.rejectionReason,
-          },
-        });
-
-        if (body.status === 'APPROVED') {
-          await this.prisma.leaveBalance.updateMany({
-            where: {
-              userId: oldLeave.userId,
-              typeId: oldLeave.typeId,
-              year,
-            },
-            data: {
-              used: { increment: oldLeave.totalDays },
-              remaining: { decrement: oldLeave.totalDays },
-            },
-          });
-
-          // FIXED: proper date handling
-          const dates: string[] = [];
-          const cur = new Date(oldLeave.startDate);
-          const end = new Date(oldLeave.endDate);
-
-          while (cur <= end) {
-            dates.push(new Date(cur).toISOString());
-            cur.setDate(cur.getDate() + 1);
-          }
-
-          const officeTiming = await this.prisma.officeTiming.findFirst({
-            where: { isActive: true },
-          });
-
-          if (!officeTiming) {
-            throw new Error('No active office timing found');
-          }
-
-          await this.prisma.attendance.createMany({
-            data: dates.map((date) => ({
-              userId: oldLeave.userId,
-              date: new Date(date),
-              status: 'ABSENT',
-              workingHours: 0,
-              lateHours: 0,
-              earlyLeave: 0,
-              overtimeHours: 0,
-              note: 'Leave Approved',
-              officeTimingId: officeTiming.id,
-            })),
-          });
-        }
-      } catch (rdsError) {
-        console.error('❌ RDS SYNC FAILED:', rdsError);
-
-        // ====================================
-        // 5. ROLLBACK DYNAMO
-        // ====================================
-        await dynamoClient.send(
-          new PutCommand({
-            TableName: 'Leaves',
-            Item: oldLeave,
-          }),
-        );
-
-        if (body.status === 'APPROVED') {
-          const balanceRes = await dynamoClient.send(
-            new QueryCommand({
-              TableName: 'LeaveBalances',
-              IndexName: 'user-year-index',
-              KeyConditionExpression: 'userId = :u AND #year = :y',
-              ExpressionAttributeNames: {
-                '#year': 'year',
-              },
-              ExpressionAttributeValues: {
-                ':u': String(oldLeave.userId),
-                ':y': Number(year),
-              },
-            }),
-          );
-
-          const balance = balanceRes.Items?.[0];
-
-          if (balance) {
-            await dynamoClient.send(
-              new UpdateCommand({
-                TableName: 'LeaveBalances',
-                Key: { id: balance.id },
-                UpdateExpression:
-                  'SET #used = #used - :used, #remaining = #remaining + :remaining',
-                ExpressionAttributeNames: {
-                  '#used': 'used',
-                  '#remaining': 'remaining',
-                },
-                ExpressionAttributeValues: {
-                  ':used': oldLeave.totalDays,
-                  ':remaining': oldLeave.totalDays,
-                },
-              }),
-            );
-          }
-        }
-
-        throw new InternalServerErrorException('Failed to sync with RDS');
-      }
 
       return updatedLeave;
     } catch (error) {
