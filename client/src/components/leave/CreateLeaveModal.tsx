@@ -12,7 +12,7 @@ interface Props {
 }
 
 interface LeaveType {
-    id: number;
+    id: string;
     name: string;
     balance?: any;
 }
@@ -188,10 +188,10 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
 
         onSubmit({
             ...form,
-            typeId: Number(form.typeId),
+            typeId: String(form.typeId),
             startDate,
             endDate,
-            userId: Number(form.userId),
+            userId: String(form.userId),
             status: form.status,
         });
 

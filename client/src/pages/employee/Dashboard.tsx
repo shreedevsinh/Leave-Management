@@ -139,7 +139,7 @@ export default function EmployeeDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves/", {
+      const res = await fetch("http://localhost:3000/leaves", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

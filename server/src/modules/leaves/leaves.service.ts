@@ -13,6 +13,8 @@ import {
   GetCommand,
   BatchGetCommand,
   DeleteCommand,
+  QueryCommand,
+  BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateLeaveDto } from './dto/create-leave.dto';
@@ -713,12 +715,11 @@ export class LeavesService {
     },
   ) {
     const dynamoClient = this.dynamo.getClient();
-
-    let oldLeave: any = null;
+    let oldLeave: any;
 
     try {
       // ====================================
-      // ✅ STEP 1: Get existing leave (for rollback)
+      // 1. FETCH LEAVE (SOURCE OF TRUTH)
       // ====================================
       const leaveRes = await dynamoClient.send(
         new GetCommand({
@@ -732,11 +733,11 @@ export class LeavesService {
       }
 
       oldLeave = leaveRes.Item;
-
       const updatedAt = new Date().toISOString();
+      const year = new Date(oldLeave.startDate).getFullYear();
 
       // ====================================
-      // ✅ STEP 2: Update Dynamo (PRIMARY)
+      // 2. UPDATE LEAVE (DYNAMO PRIMARY)
       // ====================================
       await dynamoClient.send(
         new UpdateCommand({
@@ -760,19 +761,36 @@ export class LeavesService {
       );
 
       // ====================================
-      // ✅ STEP 3: Deduct balance in Dynamo
+      // 3. APPROVAL LOGIC (BALANCE + ATTENDANCE)
       // ====================================
       if (body.status === 'APPROVED') {
-        const year = new Date(oldLeave.startDate).getFullYear();
+        // 3.1 Get LeaveBalance via GSI (IMPORTANT FIX)
+        const balanceRes = await dynamoClient.send(
+          new QueryCommand({
+            TableName: 'LeaveBalances',
+            IndexName: 'user-year-index',
+            KeyConditionExpression: 'userId = :u AND #year = :y',
+            ExpressionAttributeNames: {
+              '#year': 'year',
+            },
+            ExpressionAttributeValues: {
+              ':u': String(oldLeave.userId),
+              ':y': Number(year),
+            },
+          }),
+        );
 
+        const balance = balanceRes.Items?.[0];
+
+        if (!balance) {
+          throw new Error('Leave balance not found');
+        }
+
+        // 3.2 Update Leave Balance safely
         await dynamoClient.send(
           new UpdateCommand({
             TableName: 'LeaveBalances',
-            Key: {
-              userId: String(oldLeave.userId),
-              typeId: String(oldLeave.typeId),
-              year: String(year),
-            },
+            Key: { id: balance.id },
             UpdateExpression:
               'SET #used = #used + :used, #remaining = #remaining - :remaining',
             ExpressionAttributeNames: {
@@ -783,14 +801,59 @@ export class LeavesService {
               ':used': oldLeave.totalDays,
               ':remaining': oldLeave.totalDays,
             },
-            // ✅ Prevent negative balance (IMPORTANT)
             ConditionExpression: '#remaining >= :remaining',
           }),
         );
+
+        // 3.3 Create Attendance (Dynamo)
+        const start = new Date(oldLeave.startDate);
+        const end = new Date(oldLeave.endDate);
+
+        const attendanceClient = this.dynamo.getClient();
+
+        const attendanceItems: any[] = [];
+
+        while (start <= end) {
+          const dateStr = start.toISOString().split('T')[0];
+
+          attendanceItems.push({
+            PutRequest: {
+              Item: {
+                id: uuidv4(),
+                userId: String(oldLeave.userId),
+                date: dateStr,
+                checkIn: null,
+                checkOut: null,
+                workingHours: 0,
+                lateHours: 0,
+                earlyLeave: 0,
+                overtimeHours: 0,
+                status: 'ABSENT',
+                note: 'Leave Approved',
+                officeTimingId: oldLeave.officeTimingId || 'default',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          start.setDate(start.getDate() + 1);
+        }
+
+        // safer batch write (better than loop)
+        if (attendanceItems.length) {
+          await attendanceClient.send(
+            new BatchWriteCommand({
+              RequestItems: {
+                Attendance: attendanceItems,
+              },
+            }),
+          );
+        }
       }
 
       // ====================================
-      // ✅ STEP 4: Sync to RDS
+      // 4. SYNC RDS
       // ====================================
       let updatedLeave;
 
@@ -809,19 +872,51 @@ export class LeavesService {
             where: {
               userId: oldLeave.userId,
               typeId: oldLeave.typeId,
-              year: new Date(oldLeave.startDate).getFullYear(),
+              year,
             },
             data: {
               used: { increment: oldLeave.totalDays },
               remaining: { decrement: oldLeave.totalDays },
             },
           });
+
+          // FIXED: proper date handling
+          const dates: string[] = [];
+          const cur = new Date(oldLeave.startDate);
+          const end = new Date(oldLeave.endDate);
+
+          while (cur <= end) {
+            dates.push(new Date(cur).toISOString());
+            cur.setDate(cur.getDate() + 1);
+          }
+
+          const officeTiming = await this.prisma.officeTiming.findFirst({
+            where: { isActive: true },
+          });
+
+          if (!officeTiming) {
+            throw new Error('No active office timing found');
+          }
+
+          await this.prisma.attendance.createMany({
+            data: dates.map((date) => ({
+              userId: oldLeave.userId,
+              date: new Date(date),
+              status: 'ABSENT',
+              workingHours: 0,
+              lateHours: 0,
+              earlyLeave: 0,
+              overtimeHours: 0,
+              note: 'Leave Approved',
+              officeTimingId: officeTiming.id,
+            })),
+          });
         }
       } catch (rdsError) {
-        console.error('❌ RDS sync failed:', rdsError);
+        console.error('❌ RDS SYNC FAILED:', rdsError);
 
         // ====================================
-        // ❗ ROLLBACK Dynamo
+        // 5. ROLLBACK DYNAMO
         // ====================================
         await dynamoClient.send(
           new PutCommand({
@@ -830,30 +925,42 @@ export class LeavesService {
           }),
         );
 
-        // rollback balance if deducted
         if (body.status === 'APPROVED') {
-          const year = new Date(oldLeave.startDate).getFullYear();
-
-          await dynamoClient.send(
-            new UpdateCommand({
+          const balanceRes = await dynamoClient.send(
+            new QueryCommand({
               TableName: 'LeaveBalances',
-              Key: {
-                userId: String(oldLeave.userId),
-                typeId: String(oldLeave.typeId),
-                year: String(year),
-              },
-              UpdateExpression:
-                'SET #used = #used - :used, #remaining = #remaining + :remaining',
+              IndexName: 'user-year-index',
+              KeyConditionExpression: 'userId = :u AND #year = :y',
               ExpressionAttributeNames: {
-                '#used': 'used',
-                '#remaining': 'remaining',
+                '#year': 'year',
               },
               ExpressionAttributeValues: {
-                ':used': oldLeave.totalDays,
-                ':remaining': oldLeave.totalDays,
+                ':u': String(oldLeave.userId),
+                ':y': Number(year),
               },
             }),
           );
+
+          const balance = balanceRes.Items?.[0];
+
+          if (balance) {
+            await dynamoClient.send(
+              new UpdateCommand({
+                TableName: 'LeaveBalances',
+                Key: { id: balance.id },
+                UpdateExpression:
+                  'SET #used = #used - :used, #remaining = #remaining + :remaining',
+                ExpressionAttributeNames: {
+                  '#used': 'used',
+                  '#remaining': 'remaining',
+                },
+                ExpressionAttributeValues: {
+                  ':used': oldLeave.totalDays,
+                  ':remaining': oldLeave.totalDays,
+                },
+              }),
+            );
+          }
         }
 
         throw new InternalServerErrorException('Failed to sync with RDS');
@@ -861,7 +968,7 @@ export class LeavesService {
 
       return updatedLeave;
     } catch (error) {
-      console.error(error);
+      console.error('🔥 GLOBAL ERROR:', error);
 
       if (error instanceof BadRequestException) throw error;
 

@@ -26,28 +26,37 @@ export class UsersService {
   ) {}
 
   async createUser(data: CreateUserDto) {
+    console.log('▶️ START: createUser called with data:', data);
+
     let dynamoUserId: string | null = null;
     const createdLeaveBalanceIds: string[] = [];
 
     try {
-      const existingUser = await this.prisma.user.findFirst({
-        where: {
-          OR: [{ email: data.email }, { mobile: data.mobile }],
-        },
-      });
+      console.log('🔍 Checking if user already exists (email/mobile)');
+
+      const existingUser =
+        (await this.findByEmail(data.email)) ||
+        (await this.findByMobile(data.mobile)) ||
+        null;
+
+      console.log('➡️ existingUser:', existingUser);
 
       if (existingUser) {
+        console.log('❌ Conflict: Email or mobile already exists');
         throw new ConflictException('Email or mobile already exists');
       }
 
+      console.log('🔐 Hashing password...');
       const hashedPassword = await bcrypt.hash(data.password, 10);
+
+      console.log('🔧 Generating UUIDs...');
       const { v4: uuidv4 } = await import('uuid');
       const userId = uuidv4();
       const salaryId = uuidv4();
       dynamoUserId = userId;
-
       const now = new Date().toISOString();
 
+      console.log('🟡 Creating user in DynamoDB Users table...');
       await this.dynamo.getClient().send(
         new PutCommand({
           TableName: 'Users',
@@ -67,7 +76,9 @@ export class UsersService {
           },
         }),
       );
+      console.log('✅ Dynamo Users entry created:', userId);
 
+      console.log('🟡 Creating salary in DynamoDB Salaries table...');
       await this.dynamo.getClient().send(
         new PutCommand({
           TableName: 'Salaries',
@@ -80,14 +91,21 @@ export class UsersService {
           },
         }),
       );
+      console.log('✅ Dynamo Salaries entry created:', salaryId);
 
+      console.log('🔍 Fetching leave types from DynamoDB LeaveTypes...');
       const leaveTypesRes = await this.dynamo
         .getClient()
         .send(new ScanCommand({ TableName: 'LeaveTypes' }));
 
+      console.log('➡️ LeaveTypes fetched:', leaveTypesRes.Items);
+
+      console.log('⚙️ Preparing leave balance items...');
       const leaveBalancesDynamo = (leaveTypesRes.Items || []).map((type) => {
         const balanceId = uuidv4();
         createdLeaveBalanceIds.push(balanceId);
+
+        console.log('📌 Preparing LeaveBalance:', balanceId);
 
         return {
           id: balanceId,
@@ -100,6 +118,7 @@ export class UsersService {
         };
       });
 
+      console.log('🟡 Inserting LeaveBalances into DynamoDB...');
       await Promise.all(
         leaveBalancesDynamo.map((item) =>
           this.dynamo.getClient().send(
@@ -110,6 +129,20 @@ export class UsersService {
           ),
         ),
       );
+      console.log('✅ LeaveBalances inserted:', createdLeaveBalanceIds);
+
+      console.log("📌 RAW joinDate:", data.joinDate);
+      console.log('🟣 Creating USER in PRISMA...');
+      const parsedJoinDate = new Date(data.joinDate);
+      console.log('📌 Parsed joinDate object:', parsedJoinDate);
+
+      if (isNaN(parsedJoinDate.getTime())) {
+        console.error('❌ INVALID DATE INPUT:', data.joinDate);
+        throw new BadRequestException('Invalid joinDate format');
+      }
+
+      // const joinDateISO = parsedJoinDate.toISOString();
+      console.log('📌 Converted joinDate (ISO):',  String(data.joinDate).split('T')[0]);
 
       const user = await this.prisma.user.create({
         data: {
@@ -121,20 +154,25 @@ export class UsersService {
           role: data.role,
           isActive: data.isActive ?? true,
           isHourly: false,
-          joinDate: data.joinDate.toString(),
+          joinDate: new Date(String(data.joinDate).split('T')[0]), // ✔️ FIXED
+          salary: Number(data.salary),
         },
       });
+      console.log('✅ Prisma User Created:', user.id);
 
+      console.log('🟣 Creating SALARY in PRISMA...');
       const salary = await this.prisma.salary.create({
         data: {
           id: salaryId,
           userId,
-          baseSalary: data.salary,
+          baseSalary: Number(data.salary),
           createdAt: now,
           isActive: true,
         },
       });
+      console.log('✅ Prisma Salary Created:', salary.id);
 
+      console.log('🟣 Creating Prisma LeaveBalances...');
       await Promise.all(
         leaveBalancesDynamo.map((balance) =>
           this.prisma.leaveBalance.create({
@@ -150,12 +188,20 @@ export class UsersService {
           }),
         ),
       );
+      console.log('✅ Prisma LeaveBalances Created');
+
+      console.log('🎉 SUCCESS: User successfully created', userId);
 
       const { password, ...safeUser } = user;
       return { user: safeUser };
     } catch (error) {
+      console.error('🔥 ERROR OCCURRED:', error);
+
+      console.log('⏪ Rolling back DynamoDB entries...');
+
       try {
         if (dynamoUserId) {
+          console.log('🧹 Deleting Dynamo User:', dynamoUserId);
           await this.dynamo.getClient().send(
             new DeleteCommand({
               TableName: 'Users',
@@ -165,6 +211,10 @@ export class UsersService {
         }
 
         if (createdLeaveBalanceIds.length) {
+          console.log(
+            '🧹 Deleting Dynamo LeaveBalances:',
+            createdLeaveBalanceIds,
+          );
           await Promise.all(
             createdLeaveBalanceIds.map((id) =>
               this.dynamo.getClient().send(
@@ -176,9 +226,16 @@ export class UsersService {
             ),
           );
         }
-      } catch {}
+      } catch (rollbackError) {
+        console.error('⚠️ Rollback error:', rollbackError);
+      }
 
-      if (error instanceof ConflictException) throw error;
+      if (error instanceof ConflictException) {
+        console.log('⛔ Throwing ConflictException');
+        throw error;
+      }
+
+      console.log('❌ Throwing generic NotFoundException');
       throw new NotFoundException('Failed to create user');
     }
   }

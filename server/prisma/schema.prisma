@@ -41,6 +41,7 @@ model User {
   mobile   String @default("")
   password String
   role     Role   @default(EMPLOYEE)
+  salary   Float
 
   // relations
   leaves      Leave[]
@@ -53,7 +54,7 @@ model User {
   isActive     Boolean @default(true)
   isHourly     Boolean @default(false)
 
-  joinDate String
+  joinDate DateTime
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

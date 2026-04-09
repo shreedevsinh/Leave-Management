@@ -223,7 +223,7 @@ export default function AdminDashboard() {
     reason: string = "",
   ) => {
     await fetch(
-      `https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/${id}`,
+      `http://localhost:3000/leaves/${id}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/leaves/", {
+      const res = await fetch("http://localhost:3000/leaves", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

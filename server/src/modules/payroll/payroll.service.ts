@@ -19,34 +19,43 @@ export class PayrollService {
     private dynamo: DynamoService,
   ) {}
 
-  async getMonthlyPayroll(month: number, year: number) {
+  async getMonthlyPayroll(
+    month: number,
+    year: number,
+    limit = 10,
+    cursor: string | null,
+  ) {
     const client = this.dynamo.getClient();
 
-    const payroll = await client.send(
-      new ScanCommand({
-        TableName: 'Payrolls',
+    const params: any = {
+      TableName: 'Payrolls',
+      FilterExpression: '#y = :year AND #m = :month',
+      ExpressionAttributeNames: {
+        '#m': 'month',
+        '#y': 'year',
+      },
+      ExpressionAttributeValues: {
+        ':month': month,
+        ':year': year,
+      },
+      Limit: limit,
+    };
 
-        FilterExpression: '#y = :year AND #m = :month',
+    /** Apply cursor-based pagination */
+    if (cursor) {
+      params.ExclusiveStartKey = JSON.parse(
+        Buffer.from(cursor, 'base64').toString(),
+      );
+    }
 
-        ExpressionAttributeNames: {
-          '#m': 'month',
-          '#y': 'year',
-        },
-
-        ExpressionAttributeValues: {
-          ':month': Number(month), // ✅ FIXED
-          ':year': Number(year), // ✅ FIXED
-        },
-      }),
-    );
+    const payroll = await client.send(new ScanCommand(params));
 
     const payrolls = payroll.Items || [];
-    if (!payrolls.length) return [];
 
-    // 2️⃣ Extract unique userIds
+    /** Extract unique userIds */
     const userIds = [...new Set(payrolls.map((p) => p.userId).filter(Boolean))];
 
-    // 3️⃣ Fetch users in batch
+    /** Batch fetch users */
     const usersRes = await client.send(
       new BatchGetCommand({
         RequestItems: {
@@ -58,17 +67,30 @@ export class PayrollService {
     );
 
     const users = usersRes.Responses?.Users || [];
-
-    // 4️⃣ Create user map
     const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 
-    // 5️⃣ Merge payroll + user
+    /** Attach user data */
     const result = payrolls.map((p) => ({
       ...p,
       user: userMap[p.userId] || null,
     }));
 
-    return result;
+    /** ---- NEW: Total salary computation ---- */
+    const totalSalary = payrolls.reduce((sum, p) => {
+      return sum + (Number(p.salary) || 0);
+    }, 0);
+
+    /** Encode next cursor */
+    const nextCursor = payroll.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(payroll.LastEvaluatedKey)).toString('base64')
+      : null;
+
+    /** Response */
+    return {
+      items: result,
+      totalSalary, // <------- Added
+      nextCursor,
+    };
   }
 
   /* =========================================================
@@ -79,7 +101,7 @@ export class PayrollService {
     year = Number(year);
 
     const client = this.dynamo.getClient();
-
+    const totalDays = new Date(year, month, 0).getDate();
     const workingDays = await this.calculateWorkingDays(month, year);
 
     const users = await this.getActiveEmployees(client);
@@ -105,6 +127,7 @@ export class PayrollService {
           month,
           year,
           ...salaryData,
+          totalDays,
           createdAt: new Date().toISOString(),
         };
 

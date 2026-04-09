@@ -44,7 +44,7 @@ export default function Login() {
     e.preventDefault();
 
     try {
-      const res = await fetch("https://6hyatgyy2k.execute-api.ap-south-1.amazonaws.com/auth/login", {
+      const res = await fetch("http://localhost:3000/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
