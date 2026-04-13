@@ -1,7 +1,6 @@
-import { Bell, Search, ChevronDown, Menu } from "lucide-react";
+import { Bell, ChevronDown, Menu } from "lucide-react";
 import { useState } from "react";
 import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
 import { useNavigate, Link } from "react-router-dom";
 
 interface Props {
@@ -14,7 +13,9 @@ export default function Navbar({ setSidebarOpen, userName, role }: Props) {
   const [openProfile, setOpenProfile] = useState(false);
   const navigate = useNavigate();
 
-  const profilePath = `/${role.toLowerCase()}/profile`;
+  const profilePath = role
+    ? `/${role.toLowerCase()}/profile`
+    : "/login"; // or fallback route
 
   const handleLogout = () => {
     // 1️⃣ Remove JWT cookie
@@ -51,7 +52,7 @@ export default function Navbar({ setSidebarOpen, userName, role }: Props) {
             className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center text-black font-bold">
-              {userName[0].toUpperCase()}
+              {userName ? userName[0].toUpperCase() : "?"}
             </div>
             <ChevronDown size={16} className="hidden sm:block" />
           </button>

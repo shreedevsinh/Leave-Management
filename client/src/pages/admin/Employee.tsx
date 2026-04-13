@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import EmployeeFormModal from "../../components/Form/EmployeeFormModal";
+import type { EmployeeFormData } from "../../components/Form/EmployeeFormModal";
+import type { UpdateSalaryFormData } from "../../components/Form/EmployeeFormModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import UpdateSalaryFormModal from "../../components/Form/UpdateSalaryFormModal";
 import { IndianRupee } from "lucide-react";
@@ -13,7 +15,10 @@ interface Employee {
     mobile: string;
     isActive: boolean;
     joinDate: string;
-    salary: number;
+    salary: {
+        baseSalary: number;
+    };
+    isHourly: boolean;
 }
 
 interface Salary {
@@ -54,30 +59,43 @@ function Employee() {
         fetchEmployees();
     }, []);
 
-    const handleAddEmployee = async (newEmp: Partial<Employee>) => {
+    const handleAddEmployee = async (data: EmployeeFormData) => {
         try {
+            const payload = {
+                ...data,
+                salary: {
+                    baseSalary: data.salary || 0,
+                },
+            };
+
             const res = await fetch("http://localhost:3000/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newEmp),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) throw new Error("Failed to add employee");
 
             setIsModalOpen(false);
-            setEditingEmployee(null);
             fetchEmployees();
         } catch (error) {
-            console.error("Error adding employee:", error);
+            console.error(error);
         }
     };
 
-    const handleEditEmployee = async (id: number, updatedEmp: Partial<Employee>) => {
+    const handleEditEmployee = async (id: string, data: EmployeeFormData) => {
         try {
+            const payload = {
+                ...data,
+                salary: {
+                    baseSalary: data.salary || 0,
+                },
+            };
+
             const res = await fetch(`http://localhost:3000/users/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updatedEmp),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) throw new Error("Failed to update employee");
@@ -86,14 +104,13 @@ function Employee() {
             setEditingEmployee(null);
             fetchEmployees();
         } catch (error) {
-            console.error("Error updating employee:", error);
+            console.error(error);
         }
     };
 
-    const handleUpdateSalary = async (data: { employeeID: string; currentSalary: number; newSalary: number }) => {
-        if (!updateSalary) return;
+    const handleUpdateSalary = async (data: UpdateSalaryFormData) => {
         try {
-            const res = await fetch(`http://localhost:3000/users/${updateSalary.id}/salary`, {
+            const res = await fetch(`http://localhost:3000/users/${data.id}/salary`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ newSalary: data.newSalary }),
@@ -105,7 +122,7 @@ function Employee() {
             setUpdateSalary(null);
             fetchEmployees();
         } catch (error) {
-            console.error("Error updating salary:", error);
+            console.error(error);
         }
     };
 
@@ -200,13 +217,13 @@ function Employee() {
                                 <span className="text-gray-300">{emp.mobile}</span>
                                 <span className="text-gray-300">
                                     <IndianRupee className="inline-block mr-1" size={16} />
-                                    {emp.salary?.baseSalary}
+                                    {emp.salary?.baseSalary || 0}
                                 </span>
                                 <button
                                     onClick={() => toggleHourly(emp.id, !emp.isHourly)}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${emp.isHourly
-                                            ? "bg-gradient-to-r from-green-400 to-teal-400"
-                                            : "bg-gray-600"
+                                        ? "bg-gradient-to-r from-green-400 to-teal-400"
+                                        : "bg-gray-600"
                                         }`}
                                 >
                                     <span
@@ -227,7 +244,14 @@ function Employee() {
 
                                     <button
                                         className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-                                        onClick={() => { setUpdateSalary(emp); setUpdateSalaryModalOpen(true); }}
+                                        onClick={() => {
+                                            setUpdateSalary({
+                                                id: emp.id,
+                                                name: emp.name,
+                                                salary: emp.salary.baseSalary, // ✅ convert
+                                            });
+                                            setUpdateSalaryModalOpen(true);
+                                        }}
                                     >
                                         Salary
                                     </button>
@@ -259,7 +283,20 @@ function Employee() {
                 onClose={() => { setIsModalOpen(false); setEditingEmployee(null); }}
                 onAdd={handleAddEmployee}
                 onEdit={handleEditEmployee}
-                employee={editingEmployee || undefined}
+                employee={
+                    editingEmployee
+                        ? {
+                            id: editingEmployee.id,
+                            name: editingEmployee.name,
+                            email: editingEmployee.email,
+                            role: editingEmployee.role,
+                            mobile: editingEmployee.mobile,
+                            isActive: editingEmployee.isActive,
+                            isHourly: editingEmployee.isHourly,
+                            salary: editingEmployee.salary.baseSalary, // ✅ convert object → number
+                        }
+                        : undefined
+                }
             />
 
             {/* Update Salary Modal */}
@@ -267,7 +304,17 @@ function Employee() {
                 isOpen={isUpdateSalaryModalOpen}
                 onClose={() => { setUpdateSalaryModalOpen(false); setUpdateSalary(null); }}
                 onUpdate={handleUpdateSalary}
-                data={updateSalary || undefined}
+                data={
+                    updateSalary
+                        ? {
+                            employee: updateSalary.name,
+                            name: updateSalary.name,
+                            id: updateSalary.id,
+                            currentSalary: updateSalary.salary,
+                            salary: { baseSalary: updateSalary.salary },
+                        }
+                        : undefined
+                }
             />
 
             {/* Confirm Delete */}

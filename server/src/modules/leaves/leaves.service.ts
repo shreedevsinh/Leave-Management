@@ -728,7 +728,8 @@ export class LeavesService {
         const attendanceItems: any[] = [];
 
         while (start <= end) {
-          const dateStr = start.toISOString().split('T')[0];
+          const date = new Date(start.getTime() + 1000 * 60 * 60 * 24);
+          const dateStr = date.toISOString().split('T')[0];
 
           attendanceItems.push({
             PutRequest: {

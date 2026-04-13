@@ -15,7 +15,6 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import Toast from "../../components/common/Toast";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
-import { set } from "date-fns";
 
 export default function AdminDashboard() {
   const [open, setOpen] = useState(false);
@@ -26,8 +25,8 @@ export default function AdminDashboard() {
 
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState("startDate");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortKey, setSortKey] = useState<string>("startDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [approvedLeaves, setApprovedLeaves] = useState(0);
@@ -268,7 +267,7 @@ export default function AdminDashboard() {
       },
       {
         label: "Approved Leaves",
-          value: approvedLeaves,
+        value: approvedLeaves,
         icon: CheckCircle,
         key: "Approved",
       },
@@ -318,6 +317,17 @@ export default function AdminDashboard() {
         message: err.message.message,
         type: "error",
       });
+    }
+  };
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      // same column → toggle order
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      // new column → set key + default order
+      setSortKey(key);
+      setSortOrder("asc");
     }
   };
 
@@ -465,7 +475,7 @@ export default function AdminDashboard() {
                   />
                   <DatePicker
                     selected={startDateFilter}
-                    onChange={(date) => setStartDateFilter(date)}
+                    onChange={(date: Date | null) => setStartDateFilter(date)}
                     placeholderText="Start Date"
                     className="pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white outline-none w-[150px] focus:border-green-400 transition"
                   />
@@ -479,7 +489,7 @@ export default function AdminDashboard() {
                   />
                   <DatePicker
                     selected={endDateFilter}
-                    onChange={(date) => setEndDateFilter(date)}
+                    onChange={(date: Date | null) => setEndDateFilter(date)}
                     placeholderText="End Date"
                     className="pl-9 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-sm text-white outline-none w-[150px] focus:border-green-400 transition"
                   />
@@ -528,11 +538,8 @@ export default function AdminDashboard() {
                   <tr className="text-gray-400 border-b border-white/10">
                     <th className="py-3 text-left">Employee</th>
                     <th className="text-left">Type</th>
-                    <th
-                      className="text-left cursor-pointer"
-                      onClick={() => toggleSort("days")}
-                    >
-                      Days
+                    <th onClick={() => toggleSort("days")}>
+                      Days {sortKey === "days" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th className="text-left">Status</th>
                     <th

@@ -5,8 +5,8 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "linux-musl", "rhel-openssl-3.0.x"]
-  engineType    = "binary"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-musl"]
+  engineType = "binary"
 }
 
 enum Role {
@@ -176,7 +176,7 @@ model OfficeTiming {
   startTime DateTime
   endTime   DateTime
 
-  workingHours Float 
+  workingHours Float
 
   graceMinutes Int @default(0)
 
@@ -193,13 +193,13 @@ model Attendance {
   id     String @id @default(uuid())
   userId String
 
-  date DateTime @db.Date 
+  date DateTime @db.Date
 
   checkIn  DateTime?
   checkOut DateTime?
 
   // 📊 Calculated Fields
-  workingHours  Float @default(0) 
+  workingHours  Float @default(0)
   lateHours     Float @default(0)
   earlyLeave    Float @default(0)
   overtimeHours Float @default(0)

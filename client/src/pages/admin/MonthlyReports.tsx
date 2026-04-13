@@ -11,9 +11,12 @@ interface Payroll {
   totalDays: number;
   workingDays: number;
   leaveDays: number;
-  payableDays: number;
+  paidDays: number;
   baseSalary: number;
-  finalSalary: number;
+  salary: number;
+  efficiency: number;
+  totalWorkingHoursForMonth: number;
+  paidHours: number;
   user: {
     name: string;
     email: string;
@@ -33,6 +36,7 @@ export default function MonthlyReports() {
   const [search, setSearch] = useState("");
 
   const [totalSalary, setTotalSalary] = useState(0);
+  const [prevCursors, setPrevCursors] = useState<string[]>([]);
 
   // =========================
   // GLOBAL FETCH FUNCTION

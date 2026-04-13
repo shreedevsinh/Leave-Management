@@ -1,7 +1,6 @@
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
-  Context,
   Handler,
 } from 'aws-lambda';
 import serverless from 'serverless-http';
@@ -11,7 +10,7 @@ import express from 'express';
 import { Module } from '@nestjs/common';
 
 // Import only LeavesModule
-import { LeavesModule } from './modules/leaves/leaves.module';
+import { LeavesModule } from '../modules/leaves/leaves.module';
 
 // ✅ Create dedicated module
 @Module({

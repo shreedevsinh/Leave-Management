@@ -39,6 +39,8 @@ export default function Profile() {
     });
 
     const [leaves, setLeaves] = useState<any[]>([]);
+    console.log("leaves ==> ", leaves);
+    
 
     // 🔐 Auth
     const token = Cookies.get("access_token");

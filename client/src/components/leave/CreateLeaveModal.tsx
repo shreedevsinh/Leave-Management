@@ -42,7 +42,6 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    const [error, setError] = useState("");
     const [openUser, setOpenUser] = useState(false);
     const [openType, setOpenType] = useState(false);
     const [openStatus, setOpenStatus] = useState(false);
@@ -67,7 +66,6 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
     useEffect(() => {
         if (!userId) return;
 
-        let isMounted = true;
         const fetchLeaveTypes = async () => {
             try {
                 setLoadingTypes(true);
@@ -347,7 +345,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                         <DatePicker
                             selected={startDate}
-                            onChange={(date) => {
+                            onChange={(date: Date | null) => {
                                 setStartDate(date);
                                 setErrors((prev: any) => ({ ...prev, startDate: "" }));
                             }}
@@ -365,14 +363,14 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                         <DatePicker
                             selected={endDate}
-                            onChange={(date) => {
+                            onChange={(date: Date | null) => {
                                 setEndDate(date);
                                 setErrors((prev: any) => ({ ...prev, endDate: "" }));
                             }}
                             selectsEnd
                             startDate={startDate}
                             endDate={endDate}
-                            minDate={startDate}
+                            minDate={startDate || new Date()}
                             placeholderText="End Date"
                             className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-white outline-none"
                         />
@@ -394,7 +392,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                                 onClick={() => setOpenStatus((prev) => !prev)}
                                 className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] cursor-pointer flex justify-between items-center hover:border-green-400"
                             >
-                                <span className={`font-medium ${getStatusColor(form.status)}`}>
+                                <span className={`font-medium ${getStatusColor(form.status as LeaveStatus)}`}>
                                     {form.status || "Select Status"}
                                 </span>
                                 <span className="text-gray-400">▼</span>

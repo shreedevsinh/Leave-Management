@@ -1,5 +1,5 @@
 import LeaveDayCell from "./LeaveDayCell";
-import type { Leave } from "./LeaveContainer";
+import type { Leave } from "./leave";
 
 type Props = {
     daysArray: (number | null)[];

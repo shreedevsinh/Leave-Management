@@ -1,4 +1,4 @@
-import type { Leave } from "./LeaveContainer";
+import type { Leave } from "./leave";
 
 type Props = {
     day: number | null;
@@ -50,9 +50,9 @@ export default function LeaveDayCell({
                             <div
                                 key={i}
                                 className={`text-[10px] px-2 py-1 rounded-md truncate font-medium
-                                ${leave.status === "Approved"
+                                ${leave.status === "APPROVED"
                                         ? "bg-green-500/20 text-green-300"
-                                        : leave.status === "Rejected"
+                                        : leave.status === "REJECTED"
                                             ? "bg-red-500/20 text-red-300"
                                             : "bg-yellow-500/20 text-yellow-300"
                                     }

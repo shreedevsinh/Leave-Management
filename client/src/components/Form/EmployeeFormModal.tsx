@@ -3,7 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import { User, Mail, Lock, Briefcase, Eye, EyeOff, Calendar, IndianRupee } from "lucide-react";
-interface EmployeeFormData {
+export interface EmployeeFormData {
     id?: string;
     name: string;
     email: string;
@@ -13,13 +13,21 @@ interface EmployeeFormData {
     isActive?: boolean;
     joinDate?: string;
     salary?: number;
+    isHourly: boolean;
+}
+
+export interface UpdateSalaryFormData {
+    id: string;
+    employeeName: string;
+    currentSalary: number;
+    newSalary: number;
 }
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (employee: EmployeeFormData) => void;
-    onEdit?: (id: number, employee: EmployeeFormData) => void;
+    onEdit?: (id: string, employee: EmployeeFormData) => void;
     employee?: EmployeeFormData;
 }
 
@@ -33,6 +41,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
         isActive: true,
         joinDate: "",
         salary: 0,
+        isHourly: false,
     });
 
     const [errors, setErrors] = useState<any>({});
@@ -56,6 +65,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                 isActive: true,
                 joinDate: "",
                 salary: 0,
+                isHourly: false,
             });
 
         setErrors({});
@@ -216,7 +226,7 @@ function EmployeeFormModal({ isOpen, onClose, onAdd, onEdit, employee }: Props) 
                         <Calendar className="absolute left-3 top-3 text-white" size={18} />
                         <DatePicker
                             selected={form.joinDate ? new Date(form.joinDate) : null}
-                            onChange={(date) => {
+                            onChange={(date: Date | null) => {
                                 setForm((prev) => ({
                                     ...prev,
                                     joinDate: date ? date.toISOString() : "",

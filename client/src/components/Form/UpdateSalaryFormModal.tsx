@@ -5,7 +5,7 @@ interface UpdateSalaryFormData {
     employeeName: string;
     currentSalary: number;
     newSalary: number;
-    id : string;
+    id: string;
 }
 
 interface Props {
@@ -13,17 +13,20 @@ interface Props {
     onClose: () => void;
     onUpdate: (data: UpdateSalaryFormData) => void;
     data?: {
-        employeeName: string;
+        employee: string;
         currentSalary: number;
+        name: string;
+        id: string;
+        salary: { baseSalary: number };
     };
 }
 
 function UpdateSalaryFormModal({ isOpen, onClose, onUpdate, data }: Props) {
     const [form, setForm] = useState<UpdateSalaryFormData>({
+        id: "",
         employeeName: "",
         currentSalary: 0,
         newSalary: 0,
-        id : "",
     });
 
     const [errors, setErrors] = useState<any>({});
@@ -31,10 +34,10 @@ function UpdateSalaryFormModal({ isOpen, onClose, onUpdate, data }: Props) {
     useEffect(() => {
         if (data) {
             setForm({
-                id : data.id,
+                id: data.id,
                 employeeName: data.name,
-                currentSalary: data.salary?.baseSalary || 0 ,
-                newSalary: data.currentSalary,
+                currentSalary: data.salary?.baseSalary || 0,
+                newSalary: data.currentSalary || 0,
             });
         }
 

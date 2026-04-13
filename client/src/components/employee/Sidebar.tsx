@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   CalendarDays,
-  FileText,
   User,
   X,
 } from "lucide-react";

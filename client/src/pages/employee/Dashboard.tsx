@@ -28,6 +28,7 @@ export default function EmployeeDashboard() {
   const [currentKey, setCurrentKey] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [totalLeaves, setTotalLeaves] = useState(0);
+  console.log("totalLeaves ==> ", totalLeaves);
 
   const [isCheckedIn, setIsCheckedIn] = useState(false);
 

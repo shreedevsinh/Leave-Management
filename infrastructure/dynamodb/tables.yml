@@ -1,8 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: DynamoDB Tables for Leave Management System
-
 Resources:
-
   # -------------------------------
   # Users Table
   # -------------------------------
@@ -30,6 +26,10 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
   # -------------------------------
   # Leave Types Table
   # -------------------------------
@@ -56,6 +56,10 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
 
   # -------------------------------
   # Leaves Table
@@ -93,6 +97,10 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
   # -------------------------------
   # Leave Balances Table
   # -------------------------------
@@ -124,6 +132,10 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+      Tags:
+        - Key: Project
+          Value: LeaveManagement
+
   # -------------------------------
   # Leave Logs Table
   # -------------------------------
@@ -151,129 +163,6 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-  # -------------------------------
-  # Salary Table (NEW)
-  # -------------------------------
-  SalariesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: Salaries
-      BillingMode: PAY_PER_REQUEST
-
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: effectiveFrom
-          AttributeType: S
-
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-
-      GlobalSecondaryIndexes:
-        - IndexName: userId-effectiveFrom-index
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-            - AttributeName: effectiveFrom
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-
-  # -------------------------------
-  # Payroll Table (NEW)
-  # -------------------------------
-  PayrollsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: Payrolls
-      BillingMode: PAY_PER_REQUEST
-
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: year
-          AttributeType: N
-        - AttributeName: month
-          AttributeType: N
-
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-
-      GlobalSecondaryIndexes:
-        - IndexName: userId-year-month-index
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-            - AttributeName: year
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-
-        - IndexName: month-index
-          KeySchema:
-            - AttributeName: month
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-
-  # -------------------------------
-  # Office Timing Table
-  # -------------------------------
-  OfficeTimingTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: OfficeTiming
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-
-  # -------------------------------
-  # Attendance Table
-  # -------------------------------
-  AttendanceTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: Attendance
-      BillingMode: PAY_PER_REQUEST
-
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: date
-          AttributeType: S
-
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-
-      GlobalSecondaryIndexes:
-        - IndexName: userId-date-index
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-            - AttributeName: date
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-
-        - IndexName: date-index
-          KeySchema:
-            - AttributeName: date
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-    
-    
-
+      Tags:
+        - Key: Project
+          Value: LeaveManagement

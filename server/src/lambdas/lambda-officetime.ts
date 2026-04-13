@@ -1,7 +1,6 @@
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
-  Context,
   Handler,
 } from 'aws-lambda';
 import serverless from 'serverless-http';
@@ -10,19 +9,19 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
 import { Module } from '@nestjs/common';
 
-// Import only LeaveTypesModule
-import { LeaveTypesModule } from './modules/leave-types/leave-types.module';
+// Import Auth Module
+import { OfficetimeModule } from '../modules/officetime/officetime.module';
 
-// ✅ Create dedicated module
+// Dedicated Module
 @Module({
-  imports: [LeaveTypesModule],
+  imports: [OfficetimeModule],
 })
-class LeaveTypesAppModule {}
+class AuthAppModule {}
 
-// ✅ Cache server (important for performance)
+// Cache server (important for performance)
 let cachedServer: Handler;
 
-// ✅ Reusable bootstrap function
+// Bootstrap function
 async function bootstrap(module: any): Promise<Handler> {
   const expressApp = express();
   const adapter = new ExpressAdapter(expressApp);
@@ -31,6 +30,7 @@ async function bootstrap(module: any): Promise<Handler> {
     bufferLogs: true,
   });
 
+  // ✅ Proper CORS (MATCHES serverless.yml)
   app.enableCors({
     origin: ['http://localhost:5173'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -40,12 +40,12 @@ async function bootstrap(module: any): Promise<Handler> {
 
   await app.init();
 
-  console.log('LeaveTypes Lambda bootstrapped');
+  console.log('Auth Lambda bootstrapped');
 
   return serverless(expressApp);
 }
 
-// ✅ Lambda handler
+// Lambda handler
 export const handler: Handler<
   APIGatewayProxyEvent,
   APIGatewayProxyResult
@@ -53,15 +53,16 @@ export const handler: Handler<
   context.callbackWaitsForEmptyEventLoop = false;
 
   if (!cachedServer) {
-    cachedServer = await bootstrap(LeaveTypesAppModule);
+    cachedServer = await bootstrap(AuthAppModule);
   }
 
   try {
     const response = await (cachedServer as any)(event, context);
     return response;
   } catch (error: any) {
-    console.error('LeaveTypes Lambda error:', error);
+    console.error('Auth Lambda error:', error);
 
+    // ✅ IMPORTANT: Add CORS headers in error response
     return {
       statusCode: 500,
       headers: {

@@ -1,39 +1,35 @@
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
-  Context,
   Handler,
 } from 'aws-lambda';
 import serverless from 'serverless-http';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 
-// Import Auth Module
-import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from '../modules/users/users.module';
 
-// Dedicated Module
 @Module({
-  imports: [AuthModule],
+  imports: [UsersModule],
 })
-class AuthAppModule {}
+class UsersAppModule {}
 
-// Cache server (important for performance)
 let cachedServer: Handler;
+const logger = new Logger('Lambda');
 
-// Bootstrap function
 async function bootstrap(module: any): Promise<Handler> {
   const expressApp = express();
   const adapter = new ExpressAdapter(expressApp);
 
   const app = await NestFactory.create(module, adapter, {
     bufferLogs: true,
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'], // ✅ ENABLE ALL LOGS
   });
 
-  // ✅ Proper CORS (MATCHES serverless.yml)
   app.enableCors({
-    origin: ['http://localhost:5173'],
+    origin: ['*'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
@@ -41,29 +37,42 @@ async function bootstrap(module: any): Promise<Handler> {
 
   await app.init();
 
-  console.log('Auth Lambda bootstrapped');
+  // ✅ VERY IMPORTANT (flush buffered logs to CloudWatch)
+  app.flushLogs();
+
+  logger.log('Users Lambda bootstrapped');
+  console.log('Users Lambda bootstrapped (console)');
 
   return serverless(expressApp);
 }
 
-// Lambda handler
 export const handler: Handler<
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 > = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
 
+  const requestId = context.awsRequestId;
+
+  logger.log(`[${requestId}] Incoming request: ${event.path}`);
+  console.log(`[${requestId}] Event:`, JSON.stringify(event));
+
   if (!cachedServer) {
-    cachedServer = await bootstrap(AuthAppModule);
+    logger.log(`[${requestId}] Bootstrapping server...`);
+    cachedServer = await bootstrap(UsersAppModule);
   }
 
   try {
     const response = await (cachedServer as any)(event, context);
+
+    logger.log(`[${requestId}] Response: ${response?.statusCode || 'unknown'}`);
+
     return response;
   } catch (error: any) {
-    console.error('Auth Lambda error:', error);
+    logger.error(`[${requestId}] Lambda error`, error?.stack || error);
 
-    // ✅ IMPORTANT: Add CORS headers in error response
+    console.error(`[${requestId}] Raw error:`, error);
+
     return {
       statusCode: 500,
       headers: {

@@ -1,0 +1,57 @@
+attendance:
+  handler: ./dist/lambdas/lambda-attendance.handler
+  events:
+    - httpApi:
+        path: /attendance/{proxy+}
+        method: ANY
+
+auth:
+  handler: ./dist/lambdas/lambda-auth.handler
+  events:
+    - httpApi:
+        path: /auth/{proxy+}
+        method: ANY
+
+users:
+  handler: ./dist/lambdas/lambda-users.handler
+  events:
+    - httpApi:
+        path: /users/{proxy+}
+        method: ANY
+
+leaves:
+  handler: ./dist/lambdas/lambda-leaves.handler
+  events:
+    - httpApi:
+        path: /leaves/{proxy+}
+        method: ANY
+
+leaveTypes:
+  handler: ./dist/lambdas/lambda-leave-types.handler
+  events:
+    - httpApi:
+        path: /leave-types/{proxy+}
+        method: ANY
+
+officeTime:
+  handler: ./dist/lambdas/lambda-office-time.handler
+  events:
+    - httpApi:
+        path: /office-time/{proxy+}
+        method: ANY
+
+payRoll:
+  handler: ./dist/lambdas/lambda-payroll.handler
+  events:
+    - httpApi:
+        path: /payroll/{proxy+}
+        method: ANY
+
+
+
+
+
+
+
+
+

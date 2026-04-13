@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Plus, CheckCircle } from "lucide-react";
+import { Clock, CheckCircle } from "lucide-react";
 
 type OfficeTiming = {
     startTime: string;
@@ -7,6 +7,7 @@ type OfficeTiming = {
     workingHours: number;
     graceMinutes: number;
     isActive: boolean;
+    id: string;
 };
 
 export default function OfficeTimes() {
@@ -36,7 +37,7 @@ export default function OfficeTimes() {
     const [form, setForm] = useState({
         startTime: "",
         endTime: "",
-        workingHours: "",
+        workingHours: 0,
         graceMinutes: "",
     });
 
@@ -51,7 +52,7 @@ export default function OfficeTimes() {
         setForm({
             startTime: "",
             endTime: "",
-            workingHours: "",
+            workingHours: 0,
             graceMinutes: "",
         });
 
@@ -69,13 +70,13 @@ export default function OfficeTimes() {
         const newErrors = {
             startTime: "",
             endTime: "",
-            workingHours: "",
+            workingHours: '0',
             graceMinutes: "",
         };
 
         if (!form.startTime) newErrors.startTime = "Start time is required";
         if (!form.endTime) newErrors.endTime = "End time is required";
-        if (!form.workingHours)
+        if (!form.workingHours && form.workingHours !== 0)
             newErrors.workingHours = "Working hours is required";
         if (!form.graceMinutes)
             newErrors.graceMinutes = "Grace minutes is required";
@@ -107,12 +108,18 @@ export default function OfficeTimes() {
     };
 
     useEffect(() => {
-        const startDateTime = form.startTime ? new Date(convertToISODateTime(form.startTime)) : null;
-        const endDateTime = form.endTime ? new Date(convertToISODateTime(form.endTime)) : null;
+        const startDateTime = form.startTime
+            ? new Date(convertToISODateTime(form.startTime))
+            : null;
+
+        const endDateTime = form.endTime
+            ? new Date(convertToISODateTime(form.endTime))
+            : null;
+
         if (startDateTime && endDateTime) {
             setForm((prevForm) => ({
                 ...prevForm,
-                workingHours: setWorkingHours(form.startTime, form.endTime),
+                workingHours: setWorkingHours(prevForm.startTime, prevForm.endTime),
             }));
         }
     }, [form.startTime, form.endTime]);
@@ -321,8 +328,8 @@ export default function OfficeTimes() {
                                     placeholder="Working Hours"
                                     value={form.workingHours}
                                     onChange={(e) => {
-                                        setForm({ ...form, workingHours: e.target.value });
-                                        setErrors({ ...errors, workingHours: "" });
+                                        setForm({ ...form, workingHours: Number(e.target.value) });
+                                        setErrors({ ...errors, workingHours: "0" });
                                     }}
                                     className="w-full px-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-white outline-none hover:border-green-400 focus:border-green-400"
                                 />
