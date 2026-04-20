@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Briefcase, User, NotebookPen  } from "lucide-react";
+import { Calendar, FileText, Briefcase, User, NotebookPen } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import DatePicker from "react-datepicker";
@@ -12,12 +12,14 @@ interface Props {
 }
 
 interface LeaveType {
-    id: number;
+    id: string;
     name: string;
     balance?: any;
 }
 
 export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
+    const API_URL = import.meta.env.VITE_API_URL;
+
     const token = Cookies.get("access_token");
     if (!token) return null;
 
@@ -42,7 +44,6 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    const [error, setError] = useState("");
     const [openUser, setOpenUser] = useState(false);
     const [openType, setOpenType] = useState(false);
     const [openStatus, setOpenStatus] = useState(false);
@@ -67,12 +68,16 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
     useEffect(() => {
         if (!userId) return;
 
-        let isMounted = true;
         const fetchLeaveTypes = async () => {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("http://localhost:3000/leave-types");
+                const res = await fetch(`${API_URL}/leave-types/`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
                 if (!res.ok) {
                     throw new Error("Failed to fetch leave types");
@@ -85,15 +90,10 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                 const effectiveUserId =
                     role === "ADMIN" && form.userId ? form.userId : userId;
 
-                console.log(effectiveUserId);
-
-
                 const filtered = leaveTypesData.map((leaveType: any) => {
                     const userBalance = leaveType.balances?.find(
                         (b: any) => b.userId == effectiveUserId
                     );
-
-                    console.log(userBalance);
 
                     const { balances, ...rest } = leaveType;
 
@@ -102,7 +102,6 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         balance: userBalance || null,
                     };
                 });
-                console.log(filtered);
 
                 setLeaveTypes(filtered);
             } catch (err) {
@@ -121,8 +120,11 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("http://localhost:3000/users/employees");
-                const data = await res.json();
+                const res = await fetch(`${API_URL}/users/employees/`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }); const data = await res.json();
 
                 setEmployees(data);
             } catch (err) {
@@ -188,10 +190,10 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
 
         onSubmit({
             ...form,
-            typeId: Number(form.typeId),
+            typeId: String(form.typeId),
             startDate,
             endDate,
-            userId: Number(form.userId),
+            userId: String(form.userId),
             status: form.status,
         });
 
@@ -347,7 +349,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                         <DatePicker
                             selected={startDate}
-                            onChange={(date) => {
+                            onChange={(date: Date | null) => {
                                 setStartDate(date);
                                 setErrors((prev: any) => ({ ...prev, startDate: "" }));
                             }}
@@ -365,14 +367,14 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                         <DatePicker
                             selected={endDate}
-                            onChange={(date) => {
+                            onChange={(date: Date | null) => {
                                 setEndDate(date);
                                 setErrors((prev: any) => ({ ...prev, endDate: "" }));
                             }}
                             selectsEnd
                             startDate={startDate}
                             endDate={endDate}
-                            minDate={startDate}
+                            minDate={startDate || new Date()}
                             placeholderText="End Date"
                             className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-white outline-none"
                         />
@@ -394,7 +396,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                                 onClick={() => setOpenStatus((prev) => !prev)}
                                 className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] cursor-pointer flex justify-between items-center hover:border-green-400"
                             >
-                                <span className={`font-medium ${getStatusColor(form.status)}`}>
+                                <span className={`font-medium ${getStatusColor(form.status as LeaveStatus)}`}>
                                     {form.status || "Select Status"}
                                 </span>
                                 <span className="text-gray-400">▼</span>

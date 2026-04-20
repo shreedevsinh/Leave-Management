@@ -86,3 +86,9 @@ coverage/
 # Docker (if used)
 # =========================
 docker-compose.override.yml
+
+# =========================
+# Serverless
+# =========================
+
+.serverless

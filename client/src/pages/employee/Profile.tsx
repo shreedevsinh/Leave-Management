@@ -4,6 +4,8 @@ import { CheckCircle, Clock, XCircle, CalendarDays } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
+import Toast from "../../components/common/Toast";
+
 
 interface ProfileData {
     name: string;
@@ -21,7 +23,13 @@ interface LeaveSummary {
 }
 
 export default function Profile() {
+    const API_URL = import.meta.env.VITE_API_URL;
     const [isEditing, setIsEditing] = useState(false);
+
+    const [toast, setToast] = useState<{
+        message: string;
+        type: "success" | "error";
+    } | null>(null);
 
     const [profile, setProfile] = useState<ProfileData>({
         name: "",
@@ -39,6 +47,7 @@ export default function Profile() {
     });
 
     const [leaves, setLeaves] = useState<any[]>([]);
+    console.log("leaves ==> ", leaves);
 
     // 🔐 Auth
     const token = Cookies.get("access_token");
@@ -56,8 +65,14 @@ export default function Profile() {
         const fetchData = async () => {
             try {
                 const { data: userData } = await axios.get(
-                    `http://localhost:3000/users/employee/${userId}`
+                    `${API_URL}/users/employee/${userId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
                 );
+
 
                 if (!userData) return;
 
@@ -131,152 +146,170 @@ export default function Profile() {
             };
 
             const { data } = await axios.put(
-                `http://localhost:3000/users/user/${userId}`,
-                payload
+                `${API_URL}/users/user/${userId}`,
+                payload,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
             setProfile((prev) => ({ ...prev, password: "" }));
             setIsEditing(false);
+            console.log(data);
 
-            console.log("Profile updated:", data);
+            setToast({
+                message: "Profile updated successfully",
+                type: "success",
+            });
         } catch (error) {
             console.error("Error updating profile:", error);
         }
     };
 
     return (
-        <div className="p-4 min-h-screen text-white">
-            {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-semibold">My Profile</h1>
-                <p className="text-gray-400 text-sm">
-                    Manage your personal information
-                </p>
-            </div>
+        <>
+            <div className="p-4 min-h-screen text-white">
+                {/* Header */}
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">My Profile</h1>
+                    <p className="text-gray-400 text-sm">
+                        Manage your personal information
+                    </p>
+                </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 ">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 ">
 
-                {/* Profile Card */}
-                <div className="lg:col-span-7 border border-white/10 rounded-2xl p-6 bg-[#0f1e35]">
+                    {/* Profile Card */}
+                    <div className="lg:col-span-7 border border-white/10 rounded-2xl p-6 bg-[#0f1e35]">
 
-                    {/* Avatar */}
-                    <div className="flex items-center gap-4 mb-6">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center text-xl font-bold text-[40px] text-black">
-                            {profile.name?.[0] || "U"}
+                        {/* Avatar */}
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-teal-400 flex items-center justify-center text-xl font-bold text-[40px] text-black">
+                                {profile.name?.[0] || "U"}
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-medium">{profile.name}</h2>
+                                <p className="text-gray-400 text-sm">{profile.email}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-medium">{profile.name}</h2>
-                            <p className="text-gray-400 text-sm">{profile.email}</p>
-                        </div>
-                    </div>
 
-                    {/* Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                            { name: "name", icon: User, type: "text" },
-                            { name: "email", icon: Mail, type: "email" },
-                            { name: "mobile", icon: Phone, type: "text" },
-                            { name: "password", icon: Lock, type: "password" },
-                        ].map(({ name, icon: Icon, type }) => (
-                            <div key={name} className="relative">
-                                <Icon className="absolute left-3 top-3 text-gray-400" size={18} />
+                        {/* Form */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                                { name: "name", icon: User, type: "text" },
+                                { name: "email", icon: Mail, type: "email" },
+                                { name: "mobile", icon: Phone, type: "text" },
+                                { name: "password", icon: Lock, type: "password" },
+                            ].map(({ name, icon: Icon, type }) => (
+                                <div key={name} className="relative">
+                                    <Icon className="absolute left-3 top-3 text-gray-400" size={18} />
+                                    <input
+                                        type={type}
+                                        name={name}
+                                        value={(profile as any)[name]}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        placeholder={name === "password" ? "New Password" : ""}
+                                        className="w-full pl-10 py-2 bg-white/10 rounded-xl focus:outline-none"
+                                    />
+                                </div>
+                            ))}
+
+                            {/* Role */}
+                            <div className="relative">
+                                <Briefcase className="absolute left-3 top-3 text-gray-400" size={18} />
                                 <input
-                                    type={type}
-                                    name={name}
-                                    value={(profile as any)[name]}
-                                    onChange={handleChange}
-                                    disabled={!isEditing}
-                                    placeholder={name === "password" ? "New Password" : ""}
-                                    className="w-full pl-10 py-2 bg-white/10 rounded-xl focus:outline-none"
+                                    type="text"
+                                    value={profile.role}
+                                    disabled
+                                    className="w-full pl-10 py-2 bg-white/10 rounded-xl opacity-70"
                                 />
                             </div>
-                        ))}
+                        </div>
 
-                        {/* Role */}
-                        <div className="relative">
-                            <Briefcase className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="text"
-                                value={profile.role}
-                                disabled
-                                className="w-full pl-10 py-2 bg-white/10 rounded-xl opacity-70"
-                            />
+                        {/* Actions */}
+                        <div className="mt-6 flex justify-end">
+                            {!isEditing ? (
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl"
+                                >
+                                    Edit Profile
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleSave}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-xl"
+                                >
+                                    <Save size={16} />
+                                    Save Changes
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="mt-6 flex justify-end">
-                        {!isEditing ? (
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl"
-                            >
-                                Edit Profile
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleSave}
-                                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-xl"
-                            >
-                                <Save size={16} />
-                                Save Changes
-                            </button>
-                        )}
-                    </div>
-                </div>
+                    <div className="lg:col-span-5">
+                        <div className="grid grid-cols-2 gap-4">
 
-                <div className="lg:col-span-5">
-                    <div className="grid grid-cols-2 gap-4">
-
-                        {[
-                            {
-                                label: "Total Leaves",
-                                value: leaveSummary.total,
-                                icon: CalendarDays,
-                                color: "blue",
-                            },
-                            {
-                                label: "Approved",
-                                value: leaveSummary.approved,
-                                icon: CheckCircle,
-                                color: "green",
-                            },
-                            {
-                                label: "Pending",
-                                value: leaveSummary.pending,
-                                icon: Clock,
-                                color: "yellow",
-                            },
-                            {
-                                label: "Rejected",
-                                value: leaveSummary.rejected,
-                                icon: XCircle,
-                                color: "red",
-                            },
-                        ].map(({ label, value, icon: Icon, color }) => (
-                            <div
-                                key={label}
-                                className="relative bg-[#0f1e35] border border-white/10 rounded-2xl p-4 flex items-center justify-between transition hover:scale-[1.03] hover:bg-white/10"
-                            >
-                                {/* Left Content */}
-                                <div>
-                                    <p className="text-sm text-gray-400">{label}</p>
-                                    <h3 className="text-2xl font-semibold mt-1">{value}</h3>
-                                </div>
-
-                                {/* Icon */}
+                            {[
+                                {
+                                    label: "Total Leaves",
+                                    value: leaveSummary.total,
+                                    icon: CalendarDays,
+                                    color: "blue",
+                                },
+                                {
+                                    label: "Approved",
+                                    value: leaveSummary.approved,
+                                    icon: CheckCircle,
+                                    color: "green",
+                                },
+                                {
+                                    label: "Pending",
+                                    value: leaveSummary.pending,
+                                    icon: Clock,
+                                    color: "yellow",
+                                },
+                                {
+                                    label: "Rejected",
+                                    value: leaveSummary.rejected,
+                                    icon: XCircle,
+                                    color: "red",
+                                },
+                            ].map(({ label, value, icon: Icon, color }) => (
                                 <div
-                                    className={`p-3 rounded-xl bg-${color}-500/20 text-${color}-400`}
+                                    key={label}
+                                    className="relative bg-[#0f1e35] border border-white/10 rounded-2xl p-4 flex items-center justify-between transition hover:scale-[1.03] hover:bg-white/10"
                                 >
-                                    <Icon size={22} />
+                                    {/* Left Content */}
+                                    <div>
+                                        <p className="text-sm text-gray-400">{label}</p>
+                                        <h3 className="text-2xl font-semibold mt-1">{value}</h3>
+                                    </div>
+
+                                    {/* Icon */}
+                                    <div
+                                        className={`p-3 rounded-xl bg-${color}-500/20 text-${color}-400`}
+                                    >
+                                        <Icon size={22} />
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
 
+                        </div>
                     </div>
-                </div>
 
+                </div>
             </div>
-        </div>
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+        </>
     );
 }

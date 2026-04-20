@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { LeavesService } from './leaves.service';
 import { LeavesController } from './leaves.controller';
-import { PrismaModule } from 'src/prisma/prisma.module';
 import { DynamoModule } from 'src/dynamo/dynamo.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    PrismaModule,
     DynamoModule, // ✅ THIS IS THE FIX
+    AuthModule,
   ],
   controllers: [LeavesController],
   providers: [LeavesService],

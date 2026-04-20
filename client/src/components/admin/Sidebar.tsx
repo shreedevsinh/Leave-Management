@@ -3,6 +3,7 @@ import {
   Users,
   CalendarDays,
   FileText,
+  ClipboardClock,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -21,7 +22,8 @@ export default function Sidebar({ open, setOpen, userName }: Props) {
     { name: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
     { name: "Employees", icon: Users, path: "/admin/employees" },
     { name: "Leaves", icon: CalendarDays, path: "/admin/leaves" },
-    // { name: "Reports", icon: FileText, path: "/admin/reports" },
+    { name: "Reports", icon: FileText, path: "/admin/reports" },
+    { name: "Office Times", icon: ClipboardClock, path: "/admin/office-times" },
   ];
 
   const isActiveRoute = (path: string) => {

@@ -9,7 +9,7 @@ type Props = {
     onOpenCreateLeave: () => void;
 };
 
-export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpenLeaveTypes, onOpenCreateLeave }: Props) {
+export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpenLeaveTypes }: Props) {
 
 
     return (
@@ -53,15 +53,6 @@ export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpe
                     <span className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition rounded-xl"></span>
                 </button>
             </div>
-        </div>
-    );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-    return (
-        <div className="flex items-center gap-2">
-            <span className={`w-3 h-3 ${color} rounded-full`}></span>
-            {label}
         </div>
     );
 }

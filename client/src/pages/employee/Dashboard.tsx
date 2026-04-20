@@ -1,12 +1,22 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
-import { CalendarDays, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle,
+  XCircle,
+  Clock,
+} from "lucide-react";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
 import Toast from "../../components/common/Toast";
+import { useLocation } from "react-router-dom";
 
 export default function EmployeeDashboard() {
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const location = useLocation();
+
   const [open, setOpen] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
 
@@ -17,6 +27,16 @@ export default function EmployeeDashboard() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // 🔥 Pagination states (NEW)
+  const [lastKey, setLastKey] = useState<any>(null);
+  const [currentKey, setCurrentKey] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [totalLeaves, setTotalLeaves] = useState(0);
+  console.log("totalLeaves ==> ", totalLeaves);
+
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckedOut, setIsCheckedOut] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -36,58 +56,113 @@ export default function EmployeeDashboard() {
       year: "numeric",
     });
 
-  const fetchLeaves = async () => {
+  // 🔥 Build Query
+  const buildQuery = (key: any = null) => {
+    let params = new URLSearchParams();
+
+    params.append("limit", String(itemsPerPage));
+
+    if (key) params.append("lastKey", JSON.stringify(key));
+    if (filter !== "ALL") params.append("status", filter);
+    if (search) params.append("search", search);
+
+    // ✅ Only this employee
+    params.append("employeeId", userId);
+
+    params.append("sortKey", sortKey);
+    params.append("sortOrder", sortOrder);
+
+    return params.toString();
+  };
+
+  // 🔥 Fetch Leaves
+  const fetchLeaves = async (key = null) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const query = buildQuery(key);
+
+      const res = await fetch(`${API_URL}/leaves?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
 
-      const formatted = data
-        .filter((leave: any) => leave.userId === userId)
-        .map((leave: any) => ({
-          id: leave.id,
-          type: leave.type?.name || "Unknown",
-          days: leave.totalDays,
-          status:
-            leave.status.charAt(0).toUpperCase() +
-            leave.status.slice(1).toLowerCase(),
-          startDate: formatDate(leave.startDate),
-          endDate: formatDate(leave.endDate),
-          rawStart: new Date(leave.startDate),
-        }));
+      setTotalLeaves(data.totalCount);
+
+      const formatted = data.items.map((leave: any) => ({
+        id: leave.id,
+        type: leave.type?.name || "Unknown",
+        days: leave.totalDays,
+        status:
+          leave.status?.charAt(0).toUpperCase() +
+          leave.status?.slice(1).toLowerCase(),
+        startDate: formatDate(leave.startDate),
+        endDate: formatDate(leave.endDate),
+        rawStart: new Date(leave.startDate),
+      }));
 
       setRequests(formatted);
+      setCurrentKey(key);
+      setLastKey(data.lastKey || null);
     } catch (err) {
       console.error(err);
     }
   };
 
+  // 🔥 Pagination
+  const handleNext = () => {
+    if (!lastKey) return;
+
+    setHistory((prev) => [...prev, currentKey]);
+    fetchLeaves(lastKey);
+    setCurrentPage((p) => p + 1);
+  };
+
+  const handlePrev = () => {
+    if (history.length === 0) return;
+
+    const prevHistory = [...history];
+    const prevKey = prevHistory.pop();
+
+    setHistory(prevHistory);
+
+    fetchLeaves(prevKey ?? null);
+    setCurrentPage((p) => Math.max(p - 1, 1));
+  };
+
+  // 🔥 Initial Load
   useEffect(() => {
-    fetchLeaves();
+    fetchLeaves(null);
   }, []);
+
+  // 🔥 Reset on filters
+  useEffect(() => {
+    setCurrentPage(1);
+    setLastKey(null);
+    setCurrentKey(null);
+    setHistory([]);
+
+    fetchLeaves(null);
+  }, [filter, search, sortKey, sortOrder]);
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const res = await fetch(`${API_URL}/leaves/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...data, userId }),
+        body: JSON.stringify({ ...data }),
       });
 
       const result = await res.json();
 
-      // ❌ Handle API errors
       if (!res.ok) {
         setToast({
-          message: result.message.message,
+          message: result.message?.message || "Something went wrong",
           type: "error",
         });
-      }else{
+      } else {
         setToast({
           message: "Leave applied successfully",
           type: "success",
@@ -96,15 +171,24 @@ export default function EmployeeDashboard() {
 
       await fetchLeaves();
       setOpen(false);
-
     } catch (err: any) {
       setToast({
-        message: err.message.message,
+        message: err.message || "Error occurred",
         type: "error",
       });
     }
   };
 
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  // 🔥 Stats (server-driven requests)
   const stats = [
     {
       label: "My Leaves",
@@ -138,50 +222,84 @@ export default function EmployeeDashboard() {
     },
   ];
 
-  const filteredRequests = useMemo(() => {
-    let data = [...requests];
+  // 
+  const handleAttendance = async () => {
+    try {
+      const url = isCheckedIn
+        ? `${API_URL}/attendance/check-out`
+        : `${API_URL}/attendance/check-in`;
 
-    if (filter !== "ALL") {
-      data = data.filter((r) => r.status === filter);
-    }
+      const body = JSON.stringify({
+        [isCheckedIn ? "checkOutTime" : "checkInTime"]: new Date().toISOString(),
+        userId: userId,
+      });
 
-    if (search) {
-      data = data.filter((r) =>
-        r.type.toLowerCase().includes(search.toLowerCase())
-      );
-    }
+      const res = await fetch(url, {
+        method: isCheckedIn ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body,
+      });
 
-    data.sort((a, b) => {
-      if (sortKey === "days") {
-        return sortOrder === "asc" ? a.days - b.days : b.days - a.days;
-      }
-      return sortOrder === "asc"
-        ? a.rawStart - b.rawStart
-        : b.rawStart - a.rawStart;
-    });
+      if (!res.ok) throw new Error("Attendance action failed");
 
-    return data;
-  }, [requests, filter, search, sortKey, sortOrder]);
-
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-
-  const paginatedData = filteredRequests.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, search]);
-
-  const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortOrder("asc");
+      setToast({
+        message: isCheckedIn
+          ? "Checked Out successfully"
+          : "Checked In successfully",
+        type: "success",
+      });
+      checkAttendanceStatus();
+    } catch (error: any) {
+      console.error(error);
+      setToast({
+        message:error.message,
+        type: "error",
+      });
     }
   };
+
+  const checkAttendanceStatus = async () => {
+    try {
+      const res = await fetch(
+        `${API_URL}/attendance/todays-attendance?userId=${userId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (data && data.checkIn && data.checkOut) {
+        setIsCheckedOut(true);
+      } else if (data && data.checkIn && !data.checkOut) {
+        setIsCheckedIn(true);
+      } else {
+        setIsCheckedIn(false);
+      }
+    } catch (err) {
+      console.error("Error fetching attendance status:", err);
+    }
+  };
+
+  useEffect(() => {
+    checkAttendanceStatus();
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setToast({
+        message: location.state.message,
+        type: location.state.type || "success",
+      });
+
+      window.history.replaceState({}, document.title);
+    }
+  }, []);
 
   return (
     <>
@@ -198,12 +316,29 @@ export default function EmployeeDashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => setOpen(true)}
-            className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-5 py-2.5 rounded-xl"
-          >
-            + Create Leave
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex gap-3">
+              {!isCheckedOut && (
+                <button
+                  onClick={handleAttendance}
+                  className={`px-4 py-2 rounded-xl font-semibold transition
+                    ${isCheckedIn
+                      ? "bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33]"
+                      : "bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33]"
+                    } hover:opacity-90`}
+                >
+                  {isCheckedIn ? "Check Out" : "Check In"}
+                </button>
+              )}
+            </div>
+            {/* ➕ Create Leave */}
+            <button
+              onClick={() => setOpen(true)}
+              className="bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33] font-semibold px-5 py-2.5 rounded-xl"
+            >
+              + Create Leave
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -254,7 +389,6 @@ export default function EmployeeDashboard() {
             />
           </div>
 
-          {/* Table with fixed height */}
           <div className="overflow-x-auto">
             <div className="min-h-[500px] overflow-y-auto rounded-xl">
               <table className="w-full text-sm min-w-[600px]">
@@ -279,7 +413,7 @@ export default function EmployeeDashboard() {
                 </thead>
 
                 <tbody>
-                  {paginatedData.map((r) => (
+                  {requests.map((r) => (
                     <tr
                       key={r.id}
                       className="border-b border-white/5 hover:bg-white/5 transition"
@@ -322,39 +456,21 @@ export default function EmployeeDashboard() {
           {/* Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
             <p className="text-xs text-gray-400">
-              Showing {(currentPage - 1) * itemsPerPage + 1}–
-              {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of{" "}
-              {filteredRequests.length}
+              Showing {requests.length} records (Page {currentPage})
             </p>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={handlePrev}
                 disabled={currentPage === 1}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-green-400 to-teal-400"
               >
                 <ChevronLeft size={20} className="text-white" />
               </button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm
-                    ${currentPage === page
-                      ? "button-gradient text-white"
-                      : "text-gray-400 hover:bg-white/10"
-                    }`}
-                >
-                  {page}
-                </button>
-              ))}
-
               <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(p + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
+                onClick={handleNext}
+                disabled={!lastKey}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-teal-400 to-green-400"
               >
                 <ChevronRight size={20} className="text-white" />

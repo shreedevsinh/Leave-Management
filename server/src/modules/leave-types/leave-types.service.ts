@@ -3,61 +3,78 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { CreateLeaveTypeDto } from '../leave-types/dto/create-leave-type.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class LeaveTypesService {
   constructor(
-    private prisma: PrismaService,
     private dynamo: DynamoService,
   ) {}
 
   async getAllLeaveTypes() {
-    const leaveTypes = await this.prisma.leaveType.findMany({
-      include: {
-        balances: true,
-      },
-    });
-    return leaveTypes;
+    try {
+      // 1. Fetch from DynamoDB
+      const dynamoData = await this.dynamo.getClient().send(
+        new ScanCommand({
+          TableName: 'LeaveTypes',
+        }),
+      );
+
+      const items = dynamoData.Items || [];
+
+      return items;
+    } catch (err) {
+      console.error(err);
+      throw new InternalServerErrorException('Failed to fetch leave types');
+    }
   }
 
   async createLeaveType(data: CreateLeaveTypeDto) {
     const { name, maxPerYear, isPaid } = data;
     const parsedMax = Number(maxPerYear);
 
-    const existing = await this.prisma.leaveType.findUnique({
-      where: { name },
-    });
-    if (existing) {
-      throw new BadRequestException('Leave type already exists');
-    }
+    // ✅ Generate ID manually (important)
+    const id = uuidv4(); // or use uuid()
 
     try {
-      const type = await this.prisma.leaveType.create({
-        data: { name, maxPerYear: parsedMax, isPaid },
-      });
-
-      await this.dynamo.getClient().send(
-        new PutCommand({
+      const existingType = await this.dynamo.getClient().send(
+        new ScanCommand({
           TableName: 'LeaveTypes',
-          Item: {
-            id: type.id.toString(),
-            name: type.name,
-            maxPerYear: type.maxPerYear,
-            isPaid: type.isPaid,
+          FilterExpression: '#name = :name',
+          ExpressionAttributeNames: {
+            '#name': 'name',
+          },
+          ExpressionAttributeValues: {
+            ':name': name,
           },
         }),
       );
 
-      return {
-        id: type.id,
-        name: type.name,
-        maxPerYear: type.maxPerYear,
-        isPaid: type.isPaid,
-      };
+      const count = existingType.Count ?? 0;
+
+      if (count > 0) {
+        throw new BadRequestException(
+          `Leave type with name '${name}' already exists`,
+        );
+      }
+
+      // ✅ 1. Create in DynamoDB FIRST
+      const type = await this.dynamo.getClient().send(
+        new PutCommand({
+          TableName: 'LeaveTypes',
+          Item: {
+            id,
+            name,
+            maxPerYear: parsedMax,
+            isPaid,
+          },
+        }),
+      );
+
+      return type;
     } catch (err) {
       console.error(err);
       throw new InternalServerErrorException('Failed to create leave type');
@@ -66,7 +83,7 @@ export class LeaveTypesService {
 
   async deleteLeaveType(id: string): Promise<boolean> {
     try {
-      await this.prisma.leaveType.delete({ where: { id: Number(id) } });
+      // await this.prisma.leaveType.delete({ where: { id: String(id) } });
 
       await this.dynamo.getClient().send(
         new DeleteCommand({

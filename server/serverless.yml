@@ -1,0 +1,128 @@
+service: leave-management-app
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-south-1
+  timeout: 29
+  memorySize: 1024
+
+  environment:
+    DATABASE_URL: ${env:DATABASE_URL}
+    JWT_SECRET: ${env:JWT_SECRET}
+    NODE_ENV: production
+    FRONTEND_URL: ${env:FRONTEND_URL}, 'http://localhost:5173'
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - ${env:FRONTEND_URL}
+        - http://localhost:5173
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowCredentials: true
+      maxAge: 3600
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:Scan
+        - dynamodb:Query
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:BatchGetItem
+        - dynamodb:BatchWriteItem
+
+      Resource:
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes"
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/Users"
+        - "arn:aws:dynamodb:ap-south-1:*:table/Users/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/Leaves"
+        - "arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs"
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances"
+        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/Attendance"
+        - "arn:aws:dynamodb:ap-south-1:*:table/Attendance/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming"
+        - "arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/Payrolls"
+        - "arn:aws:dynamodb:ap-south-1:*:table/Payrolls/index/*"
+
+        - "arn:aws:dynamodb:ap-south-1:*:table/Salaries"
+        - "arn:aws:dynamodb:ap-south-1:*:table/Salaries/index/*"
+
+    - Effect: "Allow"
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: "*"
+
+functions:
+  - ${file(../infrastructure/api/functions.yml)}
+
+package:
+  individually: true
+  patterns:
+    - '!**/*.md'
+    - '!**/*.map'
+    - '!**/node_modules/aws-sdk/**'
+    - '!**/node_modules/@prisma/engines/**'
+    - '!**/node_modules/.prisma/client/query-engine-*'
+
+    # Prisma binaries (IMPORTANT)
+    - 'node_modules/.prisma/client/query-engine-rhel-openssl-1.0.x'
+    - 'node_modules/.prisma/client/query-engine-rhel-openssl-3.0.x'
+    - 'prisma/schema.prisma'
+
+    # AWS SDK v3
+    - 'node_modules/@aws-sdk/**'
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    target: node20
+    platform: node
+    keepNames: true
+    external:
+      - aws-sdk
+      - fast-crc32c
+      - '@node-rs/xxhash'
+      - '@node-rs/crc32'
+      - '@nestjs/microservices'
+      - '@nestjs/websockets/socket-module'
+      - sharp
+      - bcrypt
+      - '@prisma/client'
+
+
+resources:
+  # - ${file(../infrastructure/dynamodb/tables.yml)}
+  - ${file(../infrastructure/s3/frontend-bucket.yml)}
+  - ${file(../infrastructure/s3/cloudfront.yml)}
+
+  # - Outputs:
+  #     HttpApiUrl:
+  #       Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"

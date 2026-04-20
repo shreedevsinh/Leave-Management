@@ -1,8 +1,10 @@
-import { Body, Controller, Post, Get, Delete, Param } from '@nestjs/common';
+import { Body, Controller, Post, Get, Delete, Param, UseGuards } from '@nestjs/common';
 import { LeaveTypesService } from './leave-types.service';
 import { CreateLeaveTypeDto } from './dto/create-leave-type.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('leave-types')
+@UseGuards(AuthGuard('jwt'))
 export class LeaveTypesController {
   constructor(private readonly LeaveTypesService: LeaveTypesService) {}
 

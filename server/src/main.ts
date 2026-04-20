@@ -7,12 +7,12 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 async function bootstrap() {
   const app = await NestFactory.create(
     AppModule,
-    new FastifyAdapter(), // ✅ NO EXPRESS
+    new FastifyAdapter(),
   );
 
   // ✅ Enable CORS
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: 'https://dq5e5ftzpgj4b.cloudfront.net',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

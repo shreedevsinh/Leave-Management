@@ -1,22 +1,47 @@
 import { useState, useEffect } from "react";
 import EmployeeFormModal from "../../components/Form/EmployeeFormModal";
+import type { EmployeeFormData } from "../../components/Form/EmployeeFormModal";
+import type { UpdateSalaryFormData } from "../../components/Form/EmployeeFormModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import UpdateSalaryFormModal from "../../components/Form/UpdateSalaryFormModal";
+import UserDeviceModal from "../../components/admin/UserDeviceModal";
+import { IndianRupee } from "lucide-react";
+import Cookies from "js-cookie";
 
 interface Employee {
-    id: number;
+    id: string;
     name: string;
     email: string;
     role: string;
     mobile: string;
     isActive: boolean;
     joinDate: string;
+    salary: {
+        id?: string; // ✅ optional
+        baseSalary: number;
+    };
+    isHourly: boolean;
+    devices: string;
+}
+
+interface Salary {
+    id: string;
+    name: string;
+    salary: number;
 }
 
 function Employee() {
+    const API_URL = import.meta.env.VITE_API_URL;
+    const token = Cookies.get("access_token");
+    if (!token) return null;
+
     const [search, setSearch] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isUpdateSalaryModalOpen, setUpdateSalaryModalOpen] = useState(false);
+    const [isUserDeviceModalOpen, setUserDeviceModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [updateSalary, setUpdateSalary] = useState<Salary | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,11 +50,23 @@ function Employee() {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:3000/users/employees");
+            const res = await fetch(`${API_URL}/users/employees`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             if (!res.ok) throw new Error("Failed to fetch employees");
 
             const data: Employee[] = await res.json();
-            setEmployees(data);
+            const normalized = data.map(emp => ({
+                ...emp,
+                salary: {
+                    baseSalary: Number(emp.salary?.baseSalary ?? emp.salary ?? 0),
+                    id: emp.salary?.id,
+                },
+            }));
+
+            setEmployees(normalized);
         } catch (err: any) {
             console.error(err);
             setError(err.message);
@@ -42,30 +79,49 @@ function Employee() {
         fetchEmployees();
     }, []);
 
-    const handleAddEmployee = async (newEmp: Partial<Employee>) => {
+    const handleAddEmployee = async (data: EmployeeFormData) => {
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const payload = {
+                ...data,
+                salary: {
+                    baseSalary: data.salary || 0,
+                },
+            };
+
+            const res = await fetch(`${API_URL}/users/`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newEmp),
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) throw new Error("Failed to add employee");
 
             setIsModalOpen(false);
-            setEditingEmployee(null);
             fetchEmployees();
         } catch (error) {
-            console.error("Error adding employee:", error);
+            console.error(error);
         }
     };
 
-    const handleEditEmployee = async (id: number, updatedEmp: Partial<Employee>) => {
+    const handleEditEmployee = async (id: string, data: EmployeeFormData) => {
         try {
-            const res = await fetch(`http://localhost:3000/users/${id}`, {
+            const payload = {
+                ...data,
+                salary: {
+                    baseSalary: data.salary || 0,
+                },
+            };
+
+            const res = await fetch(`${API_URL}/users/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updatedEmp),
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) throw new Error("Failed to update employee");
@@ -74,7 +130,28 @@ function Employee() {
             setEditingEmployee(null);
             fetchEmployees();
         } catch (error) {
-            console.error("Error updating employee:", error);
+            console.error(error);
+        }
+    };
+
+    const handleUpdateSalary = async (data: UpdateSalaryFormData) => {
+        try {
+            const res = await fetch(`${API_URL}/users/${data.id}/salary`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ newSalary: data.newSalary }),
+            });
+
+            if (!res.ok) throw new Error("Failed to update salary");
+
+            setUpdateSalaryModalOpen(false);
+            setUpdateSalary(null);
+            fetchEmployees();
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -82,8 +159,9 @@ function Employee() {
         if (!deleteId) return;
 
         try {
-            const res = await fetch(`http://localhost:3000/users/${deleteId}`, {
+            const res = await fetch(`${API_URL}/users/${deleteId}`, {
                 method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("Failed to delete employee");
 
@@ -97,6 +175,24 @@ function Employee() {
     if (loading) return <div>Loading employees...</div>;
     if (error) return <div>Error: {error}</div>;
 
+    const toggleHourly = (id: string, isHourly: boolean) => {
+        fetch(`${API_URL}/users/${id}/salary-type`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ isHourly }),
+        })
+            .then((res) => res.json())
+            .then((data) => console.log(data))
+            .catch((error) => console.error("Error updating hourly:", error));
+        setEmployees((prev) =>
+            prev.map((emp) =>
+                emp.id === id ? { ...emp, isHourly } : emp
+            )
+        );
+    };
     return (
         <div className="min-h-screen text-white p-3">
 
@@ -125,11 +221,13 @@ function Employee() {
 
             {/* Employee Table */}
             <div className="bg-[#132033]/70 backdrop-blur-lg border border-[#2a3a55] rounded-2xl p-6 shadow-lg">
-                <div className="grid grid-cols-6 text-gray-400 text-sm mb-4 px-2">
+                <div className="grid grid-cols-8 text-gray-400 text-sm mb-4 px-2">
                     <span>Name</span>
                     <span>Email</span>
                     <span>Role</span>
                     <span>Mobile</span>
+                    <span>Salary</span>
+                    <span>Is Hourly</span>
                     <span>Active</span>
                     <span className="text-right">Actions</span>
                 </div>
@@ -140,12 +238,30 @@ function Employee() {
                         .map((emp) => (
                             <div
                                 key={emp.id}
-                                className="grid grid-cols-6 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
+                                className="grid grid-cols-8 items-center bg-[#1a2a40] hover:bg-[#22314d] transition rounded-xl px-4 py-3"
                             >
                                 <span className="font-medium">{emp.name}</span>
-                                <span className="text-gray-300">{emp.email}</span>
+                                <span className="text-gray-300 truncate max-w-[200px] block pr-2">
+                                    {emp.email}
+                                </span>
                                 <span className="text-gray-300">{emp.role}</span>
                                 <span className="text-gray-300">{emp.mobile}</span>
+                                <span className="text-gray-300">
+                                    <IndianRupee className="inline-block mr-1" size={16} />
+                                    {Number(emp.salary?.baseSalary) || 0}
+                                </span>
+                                <button
+                                    onClick={() => toggleHourly(emp.id, !emp.isHourly)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${emp.isHourly
+                                        ? "bg-gradient-to-r from-green-400 to-teal-400"
+                                        : "bg-gray-600"
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${emp.isHourly ? "translate-x-6" : "translate-x-1"
+                                            }`}
+                                    />
+                                </button>
                                 <span>
                                     <span
                                         className={`px-2 py-1 rounded-full text-sm font-medium ${emp.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
@@ -156,6 +272,29 @@ function Employee() {
                                 </span>
 
                                 <div className="flex justify-end gap-2">
+
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+                                        onClick={() => {
+                                            setUpdateSalary({
+                                                id: emp.id,
+                                                name: emp.name,
+                                                salary: emp.salary.baseSalary, // ✅ convert
+                                            });
+                                            setUpdateSalaryModalOpen(true);
+                                        }}
+                                    >
+                                        Salary
+                                    </button>
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                                        onClick={() => {
+                                            setEditingEmployee(emp); 
+                                            setUserDeviceModalOpen(true);
+                                        }}
+                                    >
+                                        Devices
+                                    </button>
                                     <button
                                         className="px-3 py-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30"
                                         onClick={() => { setEditingEmployee(emp); setIsModalOpen(true); }}
@@ -184,7 +323,58 @@ function Employee() {
                 onClose={() => { setIsModalOpen(false); setEditingEmployee(null); }}
                 onAdd={handleAddEmployee}
                 onEdit={handleEditEmployee}
-                employee={editingEmployee || undefined}
+                employee={
+                    editingEmployee
+                        ? {
+                            id: editingEmployee.id,
+                            name: editingEmployee.name,
+                            email: editingEmployee.email,
+                            role: editingEmployee.role,
+                            mobile: editingEmployee.mobile,
+                            isActive: editingEmployee.isActive,
+                            isHourly: editingEmployee.isHourly,
+                            salary: editingEmployee.salary.baseSalary, 
+                            devices: editingEmployee.devices
+                        }
+                        : undefined
+                }
+            />
+
+            {/* Update Salary Modal */}
+            <UpdateSalaryFormModal
+                isOpen={isUpdateSalaryModalOpen}
+                onClose={() => { setUpdateSalaryModalOpen(false); setUpdateSalary(null); }}
+                onUpdate={handleUpdateSalary}
+                data={
+                    updateSalary
+                        ? {
+                            employee: updateSalary.name,
+                            name: updateSalary.name,
+                            id: updateSalary.id,
+                            currentSalary: updateSalary.salary,
+                            salary: 0,
+                        }
+                        : undefined
+                }
+            />
+
+            {/* User Device Modal */}
+            <UserDeviceModal
+                isOpen={isUserDeviceModalOpen}
+                onClose={() => { setUserDeviceModalOpen(false); setEditingEmployee(null); }}
+                employee={
+                    editingEmployee
+                        ? {
+                            id: editingEmployee.id,
+                            name: editingEmployee.name,
+                        }
+                        : undefined
+                }
+                devicesData={
+                    editingEmployee
+                        ? editingEmployee.devices
+                        : undefined
+                } 
             />
 
             {/* Confirm Delete */}

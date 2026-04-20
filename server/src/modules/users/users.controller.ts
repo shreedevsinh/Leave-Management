@@ -1,11 +1,22 @@
-import { Body, Controller, Post, Get, Delete, Param, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Param,
+  Put,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
+@UseGuards(AuthGuard('jwt'))
 export class UsersController {
-  constructor(private usersService: UsersService) { }
+  constructor(private usersService: UsersService) {}
 
   @Post()
   async createUser(@Body() body: CreateUserDto) {
@@ -14,12 +25,23 @@ export class UsersController {
 
   @Put('/:id')
   async updateUser(@Param('id') id: string, @Body() body: UpdateUserDto) {
-    return this.usersService.updateUser(Number(id), body);
+    return this.usersService.updateUser(String(id), body);
   }
-  
+
   @Put('user/:id')
-  async updateUserNameEmail(@Param('id') id: string, @Body() body: UpdateUserDto) {
-    return this.usersService.updateUserNameEmail(Number(id), body);
+  async updateUserNameEmail(
+    @Param('id') id: string,
+    @Body() body: UpdateUserDto,
+  ) {
+    return this.usersService.updateUserNameEmail(String(id), body);
+  }
+
+  @Put('/:id/salary-type')
+  async updateUserSalaryType(
+    @Param('id') id: string,
+    @Body() body: { isHourly: boolean },
+  ) {
+    return this.usersService.updateUserSalaryType(String(id), body.isHourly);
   }
 
   @Get('/employees/')
@@ -32,8 +54,24 @@ export class UsersController {
     return this.usersService.getEmployee(id);
   }
 
+  @Post('/:id/salary')
+  async updateSalary(
+    @Param('id') id: string,
+    @Body() body: { newSalary: number },
+  ) {
+    return this.usersService.updateSalary(id, body.newSalary);
+  }
+
   @Delete('/:id')
   async deleteEmployee(@Param('id') id: string) {
     return this.usersService.deleteEmployee(id);
+  }
+
+  @Put('/employee/:id/devices')
+  async updateDevices(
+    @Param('id') id: string,
+    @Body() body: { devices: string[] },
+  ) {
+    return this.usersService.updateDevices(id, body.devices);
   }
 }

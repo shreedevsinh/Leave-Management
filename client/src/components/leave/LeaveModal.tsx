@@ -1,4 +1,4 @@
-import type { Leave } from "./LeaveContainer";
+import type { Leave } from "./leave";
 
 type Props = {
     selectedDate: string | null;

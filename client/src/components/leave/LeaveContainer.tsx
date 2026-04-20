@@ -14,10 +14,14 @@ type Leave = {
     date: string;
     employee: string;
     type: string;
-    status: string;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    startDate: string;
+    endDate: string;
 };
 
 export default function LeaveContainer() {
+    const API_URL = import.meta.env.VITE_API_URL;
+
     const today = new Date();
 
     const token = Cookies.get("access_token");
@@ -30,12 +34,11 @@ export default function LeaveContainer() {
     const [openLeaveTypes, setOpenLeaveTypes] = useState(false);
     const [openCreateLeaveType, setOpenCreateLeaveType] = useState(false);
     const [openCreateLeave, setOpenCreateLeave] = useState(false);
+    console.log("openCreateLeave ==> ", openCreateLeave);
 
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-    const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true);
-    const [errorLeaveTypes, setErrorLeaveTypes] = useState<string | null>(null);
 
     const [currentMonth, setCurrentMonth] = useState(today.getMonth());
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -47,7 +50,15 @@ export default function LeaveContainer() {
     /* ✅ Fetch + expand multi-day leaves */
     const fetchLeaves = async () => {
         try {
-            const res = await fetch("http://localhost:3000/leaves");
+            const res = await fetch(`${API_URL}/leaves/monthly?month=${currentMonth + 1}&year=${currentYear}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to fetch leaves");
+            }
 
             if (!res.ok) throw new Error("Failed to fetch leaves");
 
@@ -74,9 +85,9 @@ export default function LeaveContainer() {
                         date: localDate,
                         employee: item.user?.name || `User ${item.userId}`,
                         type: item.type?.name || "Leave",
-                        status:
-                            item.status.charAt(0).toUpperCase() +
-                            item.status.slice(1).toLowerCase(),
+                        status: item.status as "PENDING" | "APPROVED" | "REJECTED",
+                        startDate: item.startDate,
+                        endDate: item.endDate,
                     });
 
                     current.setDate(current.getDate() + 1);
@@ -92,7 +103,7 @@ export default function LeaveContainer() {
 
     useEffect(() => {
         fetchLeaves();
-    }, []);
+    }, [currentMonth, currentYear]);
 
     /* Calendar helpers */
     const getDaysInMonth = (year: number, month: number) =>
@@ -112,10 +123,11 @@ export default function LeaveContainer() {
     /* Leave Types API */
     const fetchLeaveTypes = async () => {
         try {
-            setLoadingLeaveTypes(true);
-            setErrorLeaveTypes(null);
-
-            const res = await fetch("http://localhost:3000/leave-types");
+            const res = await fetch(`${API_URL}/leave-types/`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status} - Failed to fetch`);
@@ -124,9 +136,7 @@ export default function LeaveContainer() {
             const data: LeaveType[] = await res.json();
             setLeaveTypes(data);
         } catch (err: any) {
-            setErrorLeaveTypes(err.message);
-        } finally {
-            setLoadingLeaveTypes(false);
+            console.error(err.message);
         }
     };
 
@@ -147,8 +157,13 @@ export default function LeaveContainer() {
 
         try {
             const res = await fetch(
-                `http://localhost:3000/leave-types/${deleteId}`,
-                { method: "DELETE" }
+                `${API_URL}/leave-types/${deleteId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
             if (!res.ok) {
@@ -225,8 +240,6 @@ export default function LeaveContainer() {
                 leaveTypes={leaveTypes}
                 onOpenCreate={() => setOpenCreateLeaveType(true)}
                 onDelete={handleDeleteClick}
-                loading={loadingLeaveTypes}
-                error={errorLeaveTypes}
             />
 
             <CreateLeaveTypeModal
