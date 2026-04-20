@@ -10,14 +10,16 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
+@UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Post()
   async createUser(@Body() body: CreateUserDto) {
-    console.log("body");  
     return this.usersService.createUser(body);
   }
 
@@ -63,5 +65,13 @@ export class UsersController {
   @Delete('/:id')
   async deleteEmployee(@Param('id') id: string) {
     return this.usersService.deleteEmployee(id);
+  }
+
+  @Put('/employee/:id/devices')
+  async updateDevices(
+    @Param('id') id: string,
+    @Body() body: { devices: string[] },
+  ) {
+    return this.usersService.updateDevices(id, body.devices);
   }
 }

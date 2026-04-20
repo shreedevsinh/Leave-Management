@@ -23,18 +23,20 @@ npm ci --omit=dev
 echo "🏗️ Building project..."
 npm run build
 
+echo "✅ Build Complete"
+
 # -------------------------------
-# 3. Remove Heavy Prisma Engines (after build)
+# 3. Remove Heavy Prisma Engines (before build)
 # -------------------------------
 echo "🧹 Cleaning Prisma engines..."
-rm -rf node_modules/.prisma
+# rm -rf node_modules/.prisma
 rm -rf node_modules/@prisma/engines
 
 # -------------------------------
 # 4. Deploy
 # -------------------------------
 echo "☁️ Deploying to AWS..."
-npx serverless deploy --config serverless.yml
+npx serverless deploy --force --config serverless.yml
 
 echo "✅ Backend Deployed"
 

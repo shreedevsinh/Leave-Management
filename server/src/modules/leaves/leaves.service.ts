@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import {
   PutCommand,
@@ -21,10 +20,7 @@ import { CreateLeaveDto } from './dto/create-leave.dto';
 
 @Injectable()
 export class LeavesService {
-  constructor(
-    private prisma: PrismaService,
-    private dynamo: DynamoService,
-  ) {}
+  constructor(private dynamo: DynamoService) {}
 
   // ✅ Utility: calculate days
   private calculateDays(start: Date, end: Date): number {
@@ -37,6 +33,13 @@ export class LeavesService {
     const diff = e.getTime() - s.getTime();
 
     return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  private getTTLInSeconds(years = 2) {
+    const now = Math.floor(Date.now() / 1000);
+    const secondsInYear = 365 * 24 * 60 * 60;
+
+    return now + years * secondsInYear;
   }
 
   // ✅ Split leave by year
@@ -71,16 +74,9 @@ export class LeavesService {
     year: number,
     days: number,
   ): Promise<{ typeId: string; days: number }[]> {
-    console.log('🔹 resolveLeaveSplitDynamo:start', {
-      userId,
-      typeId,
-      year,
-      days,
-    });
 
     const dynamoClient = this.dynamo.getClient();
 
-    console.log('📥 Fetching LeaveType...');
     const typeRes = await dynamoClient.send(
       new GetCommand({
         TableName: 'LeaveTypes',
@@ -88,16 +84,12 @@ export class LeavesService {
       }),
     );
 
-    console.log('📦 LeaveType result', typeRes.Item);
-
     if (!typeRes.Item) {
-      console.log('❌ Invalid leave type');
       throw new BadRequestException('Invalid leave type');
     }
 
     const type = typeRes.Item;
 
-    console.log('📥 Fetching LeaveBalance...');
     const balanceRes = await dynamoClient.send(
       new ScanCommand({
         TableName: 'LeaveBalances',
@@ -119,8 +111,6 @@ export class LeavesService {
     let balance = balanceRes.Items?.[0];
 
     if (!balance) {
-      console.log('🆕 Creating new balance');
-
       balance = {
         id: uuidv4(),
         userId: String(userId),
@@ -129,6 +119,7 @@ export class LeavesService {
         total: type.maxPerYear,
         used: 0,
         remaining: type.maxPerYear,
+        expiresAt: this.getTTLInSeconds(2).toString(),
       };
 
       await dynamoClient.send(
@@ -137,16 +128,11 @@ export class LeavesService {
           Item: balance,
         }),
       );
-
-      console.log('✅ Balance created', balance);
     }
 
     if (balance.remaining >= days) {
-      console.log('✅ Enough balance', { remaining: balance.remaining });
       return [{ typeId, days }];
     }
-
-    console.log('⚠️ Partial balance, splitting required');
 
     const result: { typeId: string; days: number }[] = [];
 
@@ -154,7 +140,6 @@ export class LeavesService {
       result.push({ typeId, days: balance.remaining });
     }
 
-    console.log('🔍 Searching Paid Leave type...');
     const paidLeaveRes = await dynamoClient.send(
       new ScanCommand({
         TableName: 'LeaveTypes',
@@ -164,12 +149,9 @@ export class LeavesService {
       }),
     );
 
-    console.log('📦 Paid leave result', paidLeaveRes.Items);
-
     const paidLeaveType = paidLeaveRes.Items?.[0];
 
     if (!paidLeaveType) {
-      console.log('❌ Paid leave not found');
       throw new BadRequestException('Paid Leave type not configured');
     }
 
@@ -177,8 +159,6 @@ export class LeavesService {
       typeId: paidLeaveType.id,
       days: days - balance.remaining,
     });
-
-    console.log('✅ Final split result', result);
 
     return result;
   }
@@ -251,6 +231,7 @@ export class LeavesService {
             status: 'PENDING',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            expiresAt: this.getTTLInSeconds(2).toString(),
           };
 
           await dynamoClient.send(
@@ -259,9 +240,6 @@ export class LeavesService {
               Item: item,
             }),
           );
-
-          console.log('✅ Dynamo insert success:', leaveId);
-
           createdLeaves.push(item);
         }
       }
@@ -271,8 +249,6 @@ export class LeavesService {
       // ====================================
       if (status === 'APPROVED') {
         for (const leave of createdLeaves) {
-          console.log('✅ Approving leave:', leave.id);
-
           await this.updateLeaveStatus(leave.id, {
             status: 'APPROVED',
             approvedBy: userId,
@@ -364,7 +340,6 @@ export class LeavesService {
         for (const l of items) {
           const id = String(l.id); // 🔥 unique identifier
 
-          // console.log('🔍 Processing leave for status count:', l.status);
           // ✅ skip duplicates
           if (seenIds.has(id)) continue;
           seenIds.add(id);
@@ -701,23 +676,27 @@ export class LeavesService {
         }
 
         // 3.2 Update Leave Balance safely
-        await dynamoClient.send(
-          new UpdateCommand({
-            TableName: 'LeaveBalances',
-            Key: { id: balance.id },
-            UpdateExpression:
-              'SET #used = #used + :used, #remaining = #remaining - :remaining',
-            ExpressionAttributeNames: {
-              '#used': 'used',
-              '#remaining': 'remaining',
-            },
-            ExpressionAttributeValues: {
-              ':used': oldLeave.totalDays,
-              ':remaining': oldLeave.totalDays,
-            },
-            ConditionExpression: '#remaining >= :remaining',
-          }),
-        );
+        try {
+          await dynamoClient.send(
+            new UpdateCommand({
+              TableName: 'LeaveBalances',
+              Key: { id: balance.id },
+              UpdateExpression:
+                'SET #used = #used + :used, #remaining = #remaining - :remaining',
+              ExpressionAttributeNames: {
+                '#used': 'used',
+                '#remaining': 'remaining',
+              },
+              ExpressionAttributeValues: {
+                ':used': oldLeave.totalDays,
+                ':remaining': oldLeave.totalDays,
+              },
+              ConditionExpression: '#remaining >= :remaining',
+            }),
+          );
+        } catch (err) {
+          console.error('❌ Error updating leave balance:', err);
+        }
 
         // 3.3 Create Attendance (Dynamo)
         const start = new Date(oldLeave.startDate);
@@ -731,26 +710,88 @@ export class LeavesService {
           const date = new Date(start.getTime() + 1000 * 60 * 60 * 24);
           const dateStr = date.toISOString().split('T')[0];
 
-          attendanceItems.push({
-            PutRequest: {
-              Item: {
-                id: uuidv4(),
-                userId: String(oldLeave.userId),
-                date: dateStr,
-                checkIn: null,
-                checkOut: null,
-                workingHours: 0,
-                lateHours: 0,
-                earlyLeave: 0,
-                overtimeHours: 0,
-                status: 'ABSENT',
-                note: 'Leave Approved',
-                officeTimingId: oldLeave.officeTimingId || 'default',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
+          // ✅ 1. Get active office timing
+          const officeTime = await attendanceClient.send(
+            new ScanCommand({
+              TableName: 'OfficeTiming',
+              FilterExpression: '#isActive = :isActive',
+              ExpressionAttributeNames: {
+                '#isActive': 'isActive',
               },
-            },
-          });
+              ExpressionAttributeValues: {
+                ':isActive': true,
+              },
+            }),
+          );
+
+          // ✅ 2. Check if attendance exists
+          const existing = await attendanceClient.send(
+            new QueryCommand({
+              TableName: 'Attendance',
+              IndexName: 'userId-date-index', // ✅ IMPORTANT
+
+              KeyConditionExpression: '#userId = :userId AND #date = :date',
+
+              ExpressionAttributeNames: {
+                '#userId': 'userId',
+                '#date': 'date',
+              },
+
+              ExpressionAttributeValues: {
+                ':userId': String(oldLeave.userId),
+                ':date': dateStr,
+              },
+            }),
+          );
+
+          if (existing.Items && existing.Items.length > 0) {
+            const record = existing.Items?.[0];
+
+            // ✅ UPDATE
+            await attendanceClient.send(
+              new UpdateCommand({
+                TableName: 'Attendance',
+                Key: {
+                  id: record.id, // ✅ ONLY PRIMARY KEY
+                },
+                UpdateExpression:
+                  'SET #status = :status, #note = :note, updatedAt = :updatedAt',
+                ExpressionAttributeNames: {
+                  '#status': 'status',
+                  '#note': 'note',
+                },
+                ExpressionAttributeValues: {
+                  ':status': 'ABSENT',
+                  ':note': 'Leave Approved',
+                  ':updatedAt': new Date().toISOString(),
+                },
+              }),
+            );
+          } else {
+            // ✅ CREATE
+            await attendanceClient.send(
+              new PutCommand({
+                TableName: 'Attendance',
+                Item: {
+                  id: uuidv4(),
+                  userId: String(oldLeave.userId),
+                  date: dateStr,
+                  checkIn: null,
+                  checkOut: null,
+                  workingHours: 0,
+                  lateHours: 0,
+                  earlyLeave: 0,
+                  overtimeHours: 0,
+                  status: 'ABSENT',
+                  note: 'Leave Approved',
+                  officeTimingId: officeTime.Items?.[0]?.id,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  expiresAt: this.getTTLInSeconds(2).toString(),
+                },
+              }),
+            );
+          }
 
           start.setDate(start.getDate() + 1);
         }

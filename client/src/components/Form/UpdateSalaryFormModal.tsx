@@ -17,7 +17,7 @@ interface Props {
         currentSalary: number;
         name: string;
         id: string;
-        salary: { baseSalary: number };
+        salary: number;
     };
 }
 
@@ -36,7 +36,7 @@ function UpdateSalaryFormModal({ isOpen, onClose, onUpdate, data }: Props) {
             setForm({
                 id: data.id,
                 employeeName: data.name,
-                currentSalary: data.salary?.baseSalary || 0,
+                currentSalary: data.salary || 0,
                 newSalary: data.currentSalary || 0,
             });
         }

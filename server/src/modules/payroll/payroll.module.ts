@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { PayrollController } from './payroll.controller';
-import { PrismaModule } from 'src/prisma/prisma.module';
 import { DynamoModule } from 'src/dynamo/dynamo.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, DynamoModule],
+  imports: [DynamoModule, AuthModule],
   controllers: [PayrollController],
   providers: [PayrollService],
   exports: [PayrollService],

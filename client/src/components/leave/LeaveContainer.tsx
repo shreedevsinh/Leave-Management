@@ -20,6 +20,8 @@ type Leave = {
 };
 
 export default function LeaveContainer() {
+    const API_URL = import.meta.env.VITE_API_URL;
+
     const today = new Date();
 
     const token = Cookies.get("access_token");
@@ -45,14 +47,18 @@ export default function LeaveContainer() {
     /* ✅ FIXED TYPE */
     const [leaves, setLeaves] = useState<Leave[]>([]);
 
-    console.log("currentMonth:", currentMonth, "currentYear:", currentYear);
-
     /* ✅ Fetch + expand multi-day leaves */
     const fetchLeaves = async () => {
         try {
-            const res = await fetch("http://localhost:3000/leaves/monthly?month=" + (currentMonth + 1) + "&year=" + currentYear);
+            const res = await fetch(`${API_URL}/leaves/monthly?month=${currentMonth + 1}&year=${currentYear}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
-            console.log("Fetch leaves response status:", res);
+            if (!res.ok) {
+                throw new Error("Failed to fetch leaves");
+            }
 
             if (!res.ok) throw new Error("Failed to fetch leaves");
 
@@ -117,7 +123,11 @@ export default function LeaveContainer() {
     /* Leave Types API */
     const fetchLeaveTypes = async () => {
         try {
-            const res = await fetch("http://localhost:3000/leave-types");
+            const res = await fetch(`${API_URL}/leave-types/`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status} - Failed to fetch`);
@@ -147,8 +157,13 @@ export default function LeaveContainer() {
 
         try {
             const res = await fetch(
-                `http://localhost:3000/leave-types/${deleteId}`,
-                { method: "DELETE" }
+                `${API_URL}/leave-types/${deleteId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
             if (!res.ok) {

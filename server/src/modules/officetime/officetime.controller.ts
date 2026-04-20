@@ -1,4 +1,4 @@
-import { Body, Get, Controller, Param, Put, Post } from '@nestjs/common';
+import { Body, Get, Controller, Param, Put, Post, Req, UseGuards } from '@nestjs/common';
 import { OfficetimeService } from './officetime.service';
 
 @Controller('officetime')
@@ -20,7 +20,7 @@ export class OfficetimeController {
   }
 
   @Get()
-  getAllOfficeTimings() {
+  getAllOfficeTimings(@Req() req) {
     return this.officetimeService.getAllOfficeTimings();
   }
 

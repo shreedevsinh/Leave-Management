@@ -25,6 +25,9 @@ leaves:
     - httpApi:
         path: /leaves/{proxy+}
         method: ANY
+    - httpApi:
+        path: /leaves
+        method: ANY
 
 leaveTypes:
   handler: ./dist/lambdas/lambda-leave-types.handler
@@ -34,10 +37,10 @@ leaveTypes:
         method: ANY
 
 officeTime:
-  handler: ./dist/lambdas/lambda-office-time.handler
+  handler: ./dist/lambdas/lambda-officetime.handler
   events:
     - httpApi:
-        path: /office-time/{proxy+}
+        path: /officetime/{proxy+}
         method: ANY
 
 payRoll:
@@ -45,6 +48,9 @@ payRoll:
   events:
     - httpApi:
         path: /payroll/{proxy+}
+        method: ANY
+    - httpApi:
+        path: /payroll
         method: ANY
 
 

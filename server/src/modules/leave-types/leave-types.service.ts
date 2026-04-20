@@ -5,14 +5,12 @@ import {
 } from '@nestjs/common';
 import { PutCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { CreateLeaveTypeDto } from '../leave-types/dto/create-leave-type.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class LeaveTypesService {
   constructor(
-    private prisma: PrismaService,
     private dynamo: DynamoService,
   ) {}
 
@@ -27,24 +25,7 @@ export class LeaveTypesService {
 
       const items = dynamoData.Items || [];
 
-      // 2. Fetch balances from RDS
-      const leaveTypesWithBalances = await this.prisma.leaveType.findMany({
-        include: { balances: true },
-      });
-
-      // 3. Merge both
-      const merged = items.map((dynamoItem) => {
-        const rdsItem = leaveTypesWithBalances.find(
-          (r) => r.id.toString() === dynamoItem.id,
-        );
-
-        return {
-          ...dynamoItem,
-          balances: rdsItem?.balances || [],
-        };
-      });
-
-      return merged;
+      return items;
     } catch (err) {
       console.error(err);
       throw new InternalServerErrorException('Failed to fetch leave types');

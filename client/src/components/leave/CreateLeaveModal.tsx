@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Briefcase, User, NotebookPen  } from "lucide-react";
+import { Calendar, FileText, Briefcase, User, NotebookPen } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import DatePicker from "react-datepicker";
@@ -18,6 +18,8 @@ interface LeaveType {
 }
 
 export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
+    const API_URL = import.meta.env.VITE_API_URL;
+
     const token = Cookies.get("access_token");
     if (!token) return null;
 
@@ -70,7 +72,12 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("http://localhost:3000/leave-types");
+                const res = await fetch(`${API_URL}/leave-types/`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
                 if (!res.ok) {
                     throw new Error("Failed to fetch leave types");
@@ -83,15 +90,10 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                 const effectiveUserId =
                     role === "ADMIN" && form.userId ? form.userId : userId;
 
-                console.log(effectiveUserId);
-
-
                 const filtered = leaveTypesData.map((leaveType: any) => {
                     const userBalance = leaveType.balances?.find(
                         (b: any) => b.userId == effectiveUserId
                     );
-
-                    console.log(userBalance);
 
                     const { balances, ...rest } = leaveType;
 
@@ -100,7 +102,6 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
                         balance: userBalance || null,
                     };
                 });
-                console.log(filtered);
 
                 setLeaveTypes(filtered);
             } catch (err) {
@@ -119,8 +120,11 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch("http://localhost:3000/users/employees");
-                const data = await res.json();
+                const res = await fetch(`${API_URL}/users/employees/`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }); const data = await res.json();
 
                 setEmployees(data);
             } catch (err) {

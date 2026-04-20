@@ -3,7 +3,6 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import { PayrollService } from '../payroll/payroll.service';
 import {
@@ -20,10 +19,16 @@ import { stat } from 'fs';
 @Injectable()
 export class AttendanceService {
   constructor(
-    private prisma: PrismaService,
     private dynamo: DynamoService,
     private payrollService: PayrollService,
   ) {}
+
+  private getTTLInSeconds(years = 2) {
+    const now = Math.floor(Date.now() / 1000);
+    const secondsInYear = 365 * 24 * 60 * 60;
+
+    return now + years * secondsInYear;
+  }
 
   // --------------------------
   // ✅ Check In
@@ -36,8 +41,6 @@ export class AttendanceService {
       month: '2-digit',
       day: '2-digit',
     }).format(new Date());
-
-    console.log('📅 Original today date:', today);
 
     const checkInTime = body.checkInTime
       ? new Date(body.checkInTime)
@@ -99,6 +102,7 @@ export class AttendanceService {
         checkIn: checkInTime.toISOString(),
         officeTimingId: officeTiming.id,
         status: 'PRESENT',
+        expiresAt: this.getTTLInSeconds(2).toString(),
       };
 
       await dynamoClient.send(
@@ -117,7 +121,6 @@ export class AttendanceService {
       // 4️⃣ ROLLBACK if anything fails
       // --------------------------
       if (attendanceId) {
-        console.log('🔄 Rolling back attendance with ID:', attendanceId);
         try {
           await dynamoClient.send(
             new DeleteCommand({
@@ -125,7 +128,6 @@ export class AttendanceService {
               Key: { id: attendanceId },
             }),
           );
-          console.log('✅ Rollback successful');
         } catch (rollbackError) {
           console.error('❌ Rollback failed:', rollbackError);
         }
@@ -150,7 +152,6 @@ export class AttendanceService {
     const checkOutTime = body.checkOutTime
       ? new Date(body.checkOutTime)
       : new Date();
-    console.log('⏰ CheckOut time:', checkOutTime.toISOString());
 
     let attendanceId: string | undefined;
 
@@ -309,31 +310,8 @@ export class AttendanceService {
                 'REMOVE checkOut, workingHours, lateHours, earlyLeave, overtimeHours',
             }),
           );
-          console.log('♻️ DynamoDB rollback done');
         } catch (rollbackError) {
           console.error('❌ DynamoDB rollback failed:', rollbackError);
-        }
-
-        // Rollback Prisma
-        try {
-          const prismaRecord = await this.prisma.attendance.findUnique({
-            where: { id: attendanceId },
-          });
-          if (prismaRecord) {
-            await this.prisma.attendance.update({
-              where: { id: attendanceId },
-              data: {
-                checkOut: null,
-                workingHours: 0,
-                lateHours: 0,
-                earlyLeave: 0,
-                overtimeHours: 0,
-              },
-            });
-            console.log('♻️ Prisma rollback done');
-          }
-        } catch (rollbackError) {
-          console.error('❌ Prisma rollback failed:', rollbackError);
         }
       }
 

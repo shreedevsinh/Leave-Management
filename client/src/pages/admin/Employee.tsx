@@ -4,8 +4,9 @@ import type { EmployeeFormData } from "../../components/Form/EmployeeFormModal";
 import type { UpdateSalaryFormData } from "../../components/Form/EmployeeFormModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import UpdateSalaryFormModal from "../../components/Form/UpdateSalaryFormModal";
+import UserDeviceModal from "../../components/admin/UserDeviceModal";
 import { IndianRupee } from "lucide-react";
-
+import Cookies from "js-cookie";
 
 interface Employee {
     id: string;
@@ -16,9 +17,11 @@ interface Employee {
     isActive: boolean;
     joinDate: string;
     salary: {
+        id?: string; // ✅ optional
         baseSalary: number;
     };
     isHourly: boolean;
+    devices: string;
 }
 
 interface Salary {
@@ -28,9 +31,14 @@ interface Salary {
 }
 
 function Employee() {
+    const API_URL = import.meta.env.VITE_API_URL;
+    const token = Cookies.get("access_token");
+    if (!token) return null;
+
     const [search, setSearch] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isUpdateSalaryModalOpen, setUpdateSalaryModalOpen] = useState(false);
+    const [isUserDeviceModalOpen, setUserDeviceModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [updateSalary, setUpdateSalary] = useState<Salary | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -42,11 +50,23 @@ function Employee() {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:3000/users/employees");
+            const res = await fetch(`${API_URL}/users/employees`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             if (!res.ok) throw new Error("Failed to fetch employees");
 
             const data: Employee[] = await res.json();
-            setEmployees(data);
+            const normalized = data.map(emp => ({
+                ...emp,
+                salary: {
+                    baseSalary: Number(emp.salary?.baseSalary ?? emp.salary ?? 0),
+                    id: emp.salary?.id,
+                },
+            }));
+
+            setEmployees(normalized);
         } catch (err: any) {
             console.error(err);
             setError(err.message);
@@ -68,9 +88,12 @@ function Employee() {
                 },
             };
 
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch(`${API_URL}/users/`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify(payload),
             });
 
@@ -92,9 +115,12 @@ function Employee() {
                 },
             };
 
-            const res = await fetch(`http://localhost:3000/users/${id}`, {
+            const res = await fetch(`${API_URL}/users/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify(payload),
             });
 
@@ -110,9 +136,12 @@ function Employee() {
 
     const handleUpdateSalary = async (data: UpdateSalaryFormData) => {
         try {
-            const res = await fetch(`http://localhost:3000/users/${data.id}/salary`, {
+            const res = await fetch(`${API_URL}/users/${data.id}/salary`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify({ newSalary: data.newSalary }),
             });
 
@@ -130,8 +159,9 @@ function Employee() {
         if (!deleteId) return;
 
         try {
-            const res = await fetch(`http://localhost:3000/users/${deleteId}`, {
+            const res = await fetch(`${API_URL}/users/${deleteId}`, {
                 method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("Failed to delete employee");
 
@@ -146,11 +176,12 @@ function Employee() {
     if (error) return <div>Error: {error}</div>;
 
     const toggleHourly = (id: string, isHourly: boolean) => {
-        console.log(id);
-        console.log(isHourly);
-        fetch(`http://localhost:3000/users/${id}/salary-type`, {
+        fetch(`${API_URL}/users/${id}/salary-type`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({ isHourly }),
         })
             .then((res) => res.json())
@@ -217,7 +248,7 @@ function Employee() {
                                 <span className="text-gray-300">{emp.mobile}</span>
                                 <span className="text-gray-300">
                                     <IndianRupee className="inline-block mr-1" size={16} />
-                                    {emp.salary?.baseSalary || 0}
+                                    {Number(emp.salary?.baseSalary) || 0}
                                 </span>
                                 <button
                                     onClick={() => toggleHourly(emp.id, !emp.isHourly)}
@@ -254,6 +285,15 @@ function Employee() {
                                         }}
                                     >
                                         Salary
+                                    </button>
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                                        onClick={() => {
+                                            setEditingEmployee(emp); 
+                                            setUserDeviceModalOpen(true);
+                                        }}
+                                    >
+                                        Devices
                                     </button>
                                     <button
                                         className="px-3 py-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30"
@@ -293,7 +333,8 @@ function Employee() {
                             mobile: editingEmployee.mobile,
                             isActive: editingEmployee.isActive,
                             isHourly: editingEmployee.isHourly,
-                            salary: editingEmployee.salary.baseSalary, // ✅ convert object → number
+                            salary: editingEmployee.salary.baseSalary, 
+                            devices: editingEmployee.devices
                         }
                         : undefined
                 }
@@ -311,10 +352,29 @@ function Employee() {
                             name: updateSalary.name,
                             id: updateSalary.id,
                             currentSalary: updateSalary.salary,
-                            salary: { baseSalary: updateSalary.salary },
+                            salary: 0,
                         }
                         : undefined
                 }
+            />
+
+            {/* User Device Modal */}
+            <UserDeviceModal
+                isOpen={isUserDeviceModalOpen}
+                onClose={() => { setUserDeviceModalOpen(false); setEditingEmployee(null); }}
+                employee={
+                    editingEmployee
+                        ? {
+                            id: editingEmployee.id,
+                            name: editingEmployee.name,
+                        }
+                        : undefined
+                }
+                devicesData={
+                    editingEmployee
+                        ? editingEmployee.devices
+                        : undefined
+                } 
             />
 
             {/* Confirm Delete */}

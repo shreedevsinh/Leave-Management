@@ -1,8 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { GetPayrollDto } from './dto/get-payroll.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('payroll')
+@UseGuards(AuthGuard('jwt'))
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}
 

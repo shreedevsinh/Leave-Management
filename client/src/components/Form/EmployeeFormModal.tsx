@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import { User, Mail, Lock, Briefcase, Eye, EyeOff, Calendar, IndianRupee } from "lucide-react";
+
 export interface EmployeeFormData {
     id?: string;
     name: string;
@@ -14,6 +15,7 @@ export interface EmployeeFormData {
     joinDate?: string;
     salary?: number;
     isHourly: boolean;
+    devices?: string;
 }
 
 export interface UpdateSalaryFormData {

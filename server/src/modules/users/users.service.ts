@@ -5,7 +5,6 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import {
   PutCommand,
@@ -20,10 +19,14 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-    private dynamo: DynamoService,
-  ) {}
+  constructor(private dynamo: DynamoService) {}
+
+  private getTTLInSeconds(years = 2) {
+    const now = Math.floor(Date.now() / 1000);
+    const secondsInYear = 365 * 24 * 60 * 60;
+
+    return now + years * secondsInYear;
+  }
 
   async createUser(data: CreateUserDto) {
     let dynamoUserId: string | null = null;
@@ -36,7 +39,6 @@ export class UsersService {
         null;
 
       if (existingUser) {
-        console.log('❌ Conflict: Email or mobile already exists');
         throw new ConflictException('Email or mobile already exists');
       }
 
@@ -97,6 +99,7 @@ export class UsersService {
           used: 0,
           remaining: type.maxPerYear,
           year: new Date().getFullYear(),
+          expiresAt: this.getTTLInSeconds(2).toString(),
         };
       });
 
@@ -358,9 +361,6 @@ export class UsersService {
   }
 
   async updateUserSalaryType(id: string, isHourly: boolean) {
-    console.log(
-      `Updating salary type for user ${id} to ${isHourly ? 'Hourly' : 'Daily'}`,
-    );
     try {
       await this.dynamo.getClient().send(
         new UpdateCommand({
@@ -463,6 +463,7 @@ export class UsersService {
           role: u.role,
           isActive: u.isActive,
           isHourly: u.isHourly,
+          devices: u.devices,
           salary: salary
             ? {
                 id: salary.id,
@@ -522,6 +523,24 @@ export class UsersService {
       return true;
     } catch {
       throw new InternalServerErrorException('Failed to delete employee');
+    }
+  }
+
+  async updateDevices(id: string, devices: string[]) {
+    try {
+      await this.dynamo.getClient().send(
+        new UpdateCommand({
+          TableName: 'Users',
+          Key: { id },
+          UpdateExpression: 'SET devices = :devices',
+          ExpressionAttributeValues: {
+            ':devices': devices,
+          },
+        }),
+      );
+      return true;
+    } catch {
+      throw new InternalServerErrorException('Failed to update devices');
     }
   }
 }

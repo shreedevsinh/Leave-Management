@@ -17,6 +17,8 @@ import Toast from "../../components/common/Toast";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
 
 export default function AdminDashboard() {
+  const API_URL = import.meta.env.VITE_API_URL;
+
   const [open, setOpen] = useState(false);
 
   const [requests, setRequests] = useState<any[]>([]);
@@ -81,8 +83,6 @@ export default function AdminDashboard() {
     if (search) params.append("search", search);
     if (selectedEmployeeId !== "ALL") params.append("employeeId", selectedEmployeeId);
 
-    console.log(selectedEmployeeId);
-
     if (startDateFilter)
       params.append("startDate", startDateFilter.toISOString());
     if (endDateFilter) params.append("endDate", endDateFilter.toISOString());
@@ -90,7 +90,6 @@ export default function AdminDashboard() {
     params.append("sortKey", sortKey);
     params.append("sortOrder", sortOrder);
 
-    console.log(params.toString());
     return params.toString();
   };
 
@@ -99,7 +98,7 @@ export default function AdminDashboard() {
     try {
       const query = buildQuery(key);
 
-      const res = await fetch(`http://localhost:3000/leaves?${query}`, {
+      const res = await fetch(`${API_URL}/leaves/?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -157,7 +156,7 @@ export default function AdminDashboard() {
   // 🔥 Fetch Employees
   const fetchEmployees = async () => {
     try {
-      const res = await fetch("http://localhost:3000/users/employees", {
+      const res = await fetch(`${API_URL}/users/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -222,10 +221,13 @@ export default function AdminDashboard() {
     reason: string = "",
   ) => {
     await fetch(
-      `http://localhost:3000/leaves/${id}`,
+      `${API_URL}/leaves/${id}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           status: newStatus.toUpperCase(),
           approvedBy: userId,
@@ -282,7 +284,7 @@ export default function AdminDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const res = await fetch(`${API_URL}/leaves/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -291,13 +293,10 @@ export default function AdminDashboard() {
         body: JSON.stringify({ ...data }),
       });
 
-      console.log(res);
-
       const result = await res.json();
 
       // ❌ Handle API errors
       if (!res.ok) {
-        console.log(result);
         setToast({
           message: result.message.message,
           type: "error",

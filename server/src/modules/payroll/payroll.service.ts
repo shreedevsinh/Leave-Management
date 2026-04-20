@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { DynamoService } from 'src/dynamo/dynamo.service';
 import {
   PutCommand,
@@ -14,10 +13,14 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PayrollService {
-  constructor(
-    private prisma: PrismaService,
-    private dynamo: DynamoService,
-  ) {}
+  constructor(private dynamo: DynamoService) {}
+
+  private getTTLInSeconds(years = 2) {
+    const now = Math.floor(Date.now() / 1000);
+    const secondsInYear = 365 * 24 * 60 * 60;
+
+    return now + years * secondsInYear;
+  }
 
   async getMonthlyPayroll(
     month: number,
@@ -27,35 +30,54 @@ export class PayrollService {
   ) {
     const client = this.dynamo.getClient();
 
-    const params: any = {
-      TableName: 'Payrolls',
-      FilterExpression: '#y = :year AND #m = :month',
-      ExpressionAttributeNames: {
-        '#m': 'month',
-        '#y': 'year',
-      },
-      ExpressionAttributeValues: {
-        ':month': month,
-        ':year': year,
-      },
-      Limit: limit,
-    };
+    let items: any[] = [];
+    let lastKey: any = cursor
+      ? JSON.parse(Buffer.from(cursor, 'base64').toString())
+      : undefined;
 
-    /** Apply cursor-based pagination */
-    if (cursor) {
-      params.ExclusiveStartKey = JSON.parse(
-        Buffer.from(cursor, 'base64').toString(),
-      );
+    let nextCursor: string | null = null;
+
+    // 🔁 LOOP until we collect enough filtered items
+    do {
+      const params: any = {
+        TableName: 'Payrolls',
+        FilterExpression: '#y = :year AND #m = :month',
+        ExpressionAttributeNames: {
+          '#m': 'month',
+          '#y': 'year',
+        },
+        ExpressionAttributeValues: {
+          ':month': month,
+          ':year': year,
+        },
+        ExclusiveStartKey: lastKey,
+      };
+
+      const res = await client.send(new ScanCommand(params));
+
+      const scannedItems = res.Items || [];
+
+      items = [...items, ...scannedItems];
+
+      lastKey = res.LastEvaluatedKey;
+    } while (items.length < limit && lastKey);
+
+    // ✂️ Trim to exact limit
+    const payrolls = items.slice(0, limit);
+
+    if (!payrolls.length) {
+      return {
+        items: [],
+        totalSalary: 0,
+        nextCursor: null,
+      };
     }
 
-    const payroll = await client.send(new ScanCommand(params));
-
-    const payrolls = payroll.Items || [];
-
-    /** Extract unique userIds */
+    // =========================
+    // 👤 Fetch Users
+    // =========================
     const userIds = [...new Set(payrolls.map((p) => p.userId).filter(Boolean))];
 
-    /** Batch fetch users */
     const usersRes = await client.send(
       new BatchGetCommand({
         RequestItems: {
@@ -69,26 +91,28 @@ export class PayrollService {
     const users = usersRes.Responses?.Users || [];
     const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 
-    /** Attach user data */
     const result = payrolls.map((p) => ({
       ...p,
       user: userMap[p.userId] || null,
     }));
 
-    /** ---- NEW: Total salary computation ---- */
+    // =========================
+    // 💰 Total Salary (current page)
+    // =========================
     const totalSalary = payrolls.reduce((sum, p) => {
       return sum + (Number(p.salary) || 0);
     }, 0);
 
-    /** Encode next cursor */
-    const nextCursor = payroll.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(payroll.LastEvaluatedKey)).toString('base64')
+    // =========================
+    // 📌 Next Cursor
+    // =========================
+    nextCursor = lastKey
+      ? Buffer.from(JSON.stringify(lastKey)).toString('base64')
       : null;
 
-    /** Response */
     return {
       items: result,
-      totalSalary, // <------- Added
+      totalSalary,
       nextCursor,
     };
   }
@@ -129,6 +153,7 @@ export class PayrollService {
           ...salaryData,
           totalDays,
           createdAt: new Date().toISOString(),
+          expiresAt: this.getTTLInSeconds(2).toString(),
         };
 
         const existingPayroll = await this.getPayroll(

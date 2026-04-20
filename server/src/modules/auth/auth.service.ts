@@ -23,7 +23,11 @@ export class AuthService {
     }
 
     if (!user.password) {
-      throw new UnauthorizedException('Password not found for user');
+      const message = 'User does not have a password';
+      return {
+        message,
+        status: 400,
+      };
     }
 
     // 🔑 Compare passwords
@@ -43,7 +47,7 @@ export class AuthService {
       role: user.role,
     };
 
-    const access_token = this.jwtService.sign(payload);
+    const access_token = await this.jwtService.signAsync(payload);
 
     const { password: _, ...userWithoutPassword } = user;
 

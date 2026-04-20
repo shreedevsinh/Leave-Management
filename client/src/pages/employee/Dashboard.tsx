@@ -10,8 +10,13 @@ import {
 } from "lucide-react";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
 import Toast from "../../components/common/Toast";
+import { useLocation } from "react-router-dom";
 
 export default function EmployeeDashboard() {
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const location = useLocation();
+
   const [open, setOpen] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
 
@@ -31,6 +36,7 @@ export default function EmployeeDashboard() {
   console.log("totalLeaves ==> ", totalLeaves);
 
   const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckedOut, setIsCheckedOut] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -74,7 +80,7 @@ export default function EmployeeDashboard() {
     try {
       const query = buildQuery(key);
 
-      const res = await fetch(`http://localhost:3000/leaves?${query}`, {
+      const res = await fetch(`${API_URL}/leaves?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -140,7 +146,7 @@ export default function EmployeeDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch("http://localhost:3000/leaves", {
+      const res = await fetch(`${API_URL}/leaves/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -219,10 +225,9 @@ export default function EmployeeDashboard() {
   // 
   const handleAttendance = async () => {
     try {
-      const token = localStorage.getItem("token");
       const url = isCheckedIn
-        ? "http://localhost:3000/attendance/check-out"
-        : "http://localhost:3000/attendance/check-in";
+        ? `${API_URL}/attendance/check-out`
+        : `${API_URL}/attendance/check-in`;
 
       const body = JSON.stringify({
         [isCheckedIn ? "checkOutTime" : "checkInTime"]: new Date().toISOString(),
@@ -240,41 +245,42 @@ export default function EmployeeDashboard() {
 
       if (!res.ok) throw new Error("Attendance action failed");
 
-      alert(
-        isCheckedIn ? "✅ Checked Out successfully" : "✅ Checked In successfully"
-      );
-      setIsCheckedIn(!isCheckedIn); // toggle state
+      setToast({
+        message: isCheckedIn
+          ? "Checked Out successfully"
+          : "Checked In successfully",
+        type: "success",
+      });
+      checkAttendanceStatus();
     } catch (error: any) {
       console.error(error);
-      alert(error.message);
+      setToast({
+        message:error.message,
+        type: "error",
+      });
     }
   };
 
   const checkAttendanceStatus = async () => {
-    console.log("Checking today's attendance status for user:", userId);
     try {
       const res = await fetch(
-        `http://localhost:3000/attendance/todays-attendance?userId=${userId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+        `${API_URL}/attendance/todays-attendance?userId=${userId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await res.json();
-      console.log("Today's attendance data:", data);
 
-      if (data && data.checkIn && !data.checkOut) {
+      if (data && data.checkIn && data.checkOut) {
+        setIsCheckedOut(true);
+      } else if (data && data.checkIn && !data.checkOut) {
         setIsCheckedIn(true);
       } else {
         setIsCheckedIn(false);
       }
-
-      console.log("User is currently:", isCheckedIn ? "Checked In" : "Checked Out");
-
     } catch (err) {
       console.error("Error fetching attendance status:", err);
     }
@@ -282,6 +288,17 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     checkAttendanceStatus();
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setToast({
+        message: location.state.message,
+        type: location.state.type || "success",
+      });
+
+      window.history.replaceState({}, document.title);
+    }
   }, []);
 
   return (
@@ -301,16 +318,18 @@ export default function EmployeeDashboard() {
 
           <div className="flex flex-wrap gap-3">
             <div className="flex gap-3">
-              <button
-                onClick={handleAttendance}
-                className={`px-4 py-2 rounded-xl font-semibold transition
-                  ${isCheckedIn
-                    ? "bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33]"
-                    : "bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33]"
-                  } hover:opacity-90`}
-              >
-                {isCheckedIn ? "Check Out" : "Check In"}
-              </button>
+              {!isCheckedOut && (
+                <button
+                  onClick={handleAttendance}
+                  className={`px-4 py-2 rounded-xl font-semibold transition
+                    ${isCheckedIn
+                      ? "bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33]"
+                      : "bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33]"
+                    } hover:opacity-90`}
+                >
+                  {isCheckedIn ? "Check Out" : "Check In"}
+                </button>
+              )}
             </div>
             {/* ➕ Create Leave */}
             <button

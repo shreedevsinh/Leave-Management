@@ -1,5 +1,7 @@
 import type { LeaveType } from "./types";
 import { Trash2 } from "lucide-react";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 
 type Props = {
     isOpen: boolean;
@@ -16,6 +18,12 @@ export default function LeaveTypesModal({
     onOpenCreate,
     onDelete,
 }: Props) {
+    const token = Cookies.get("access_token");
+    if (!token) return null;
+
+    const decoded: any = jwtDecode(token);
+    const role = decoded.role;
+
     if (!isOpen) return null;
     return (
         <div
@@ -31,13 +39,14 @@ export default function LeaveTypesModal({
                 {/* Header */}
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-semibold">Leave Types</h2>
-
-                    <button
-                        onClick={onOpenCreate}
-                        className="button-gradient"
-                    >
-                        + Add
-                    </button>
+                    {role === "ADMIN" && (
+                        <button
+                            onClick={onOpenCreate}
+                            className="button-gradient"
+                        >
+                            + Add
+                        </button>
+                    )}
                 </div>
 
                 {/* Content */}
@@ -69,23 +78,23 @@ export default function LeaveTypesModal({
                                         <div className="flex flex-col items-end gap-2">
                                             {/* Status Badge */}
                                             <span
-                                                className={`text-xs px-2 py-1 rounded-md ${
-                                                    lt.isPaid
-                                                        ? "bg-green-400/20 text-green-300"
-                                                        : "bg-red-400/20 text-red-300"
-                                                }`}
+                                                className={`text-xs px-2 py-1 rounded-md ${lt.isPaid
+                                                    ? "bg-green-400/20 text-green-300"
+                                                    : "bg-red-400/20 text-red-300"
+                                                    }`}
                                             >
                                                 {lt.isPaid ? "Paid" : "Unpaid"}
                                             </span>
-
                                             {/* Delete Button */}
-                                            <button
-                                                onClick={() => onDelete(lt.id)}
-                                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30 transition opacity-70 hover:opacity-100"
-                                            >
-                                                <Trash2 size={14} />
-                                                Delete
-                                            </button>
+                                            {role === "ADMIN" && (
+                                                <button
+                                                    onClick={() => onDelete(lt.id)}
+                                                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30 transition opacity-70 hover:opacity-100"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

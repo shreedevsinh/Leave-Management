@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle } from "lucide-react";
+import Cookies from "js-cookie";
 
 type OfficeTiming = {
     startTime: string;
@@ -11,19 +12,38 @@ type OfficeTiming = {
 };
 
 export default function OfficeTimes() {
+    const API_URL = import.meta.env.VITE_API_URL;
     const [open, setOpen] = useState(false);
     const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
     const [timings, setTimings] = useState<OfficeTiming[]>([]);
+    const token = Cookies.get("access_token");
 
 
     // ✅ Fetch data from API
     const fetchTimings = async () => {
         try {
-            const res = await fetch("http://localhost:3000/officetime");
-            if (!res.ok) throw new Error("Failed to fetch office timings");
+
+            if (!token) {
+                console.error("No token found");
+                return;
+            }
+
+
+            const res = await fetch(`${API_URL}/officetime/`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`, // ✅ attach token
+                },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to fetch office timings: ${res.status}`);
+            }
 
             const data: OfficeTiming[] = await res.json();
             setTimings(data);
+
         } catch (err) {
             console.error("❌ Fetch error:", err);
         }
@@ -70,13 +90,13 @@ export default function OfficeTimes() {
         const newErrors = {
             startTime: "",
             endTime: "",
-            workingHours: '0',
+            workingHours: "",
             graceMinutes: "",
         };
 
         if (!form.startTime) newErrors.startTime = "Start time is required";
         if (!form.endTime) newErrors.endTime = "End time is required";
-        if (!form.workingHours && form.workingHours !== 0)
+        if (!form.workingHours)
             newErrors.workingHours = "Working hours is required";
         if (!form.graceMinutes)
             newErrors.graceMinutes = "Grace minutes is required";
@@ -146,13 +166,12 @@ export default function OfficeTimes() {
             isActive: false,
         };
 
-        console.log("Creating timing:", newTiming);
-
         try {
-            const res = await fetch("http://localhost:3000/officetime", {
+            const res = await fetch(`${API_URL}/officetime/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify(newTiming),
             });
@@ -175,8 +194,12 @@ export default function OfficeTimes() {
 
     const setActive = async (id: string) => {
         try {
-            const res = await fetch(`http://localhost:3000/officetime/active/${id}`, {
-                method: "PUT"
+            const res = await fetch(`${API_URL}/officetime/active/${id}`, {
+                method: "PUT", 
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                }
             });
 
             if (!res.ok) throw new Error("Failed to set active timing");
@@ -189,7 +212,6 @@ export default function OfficeTimes() {
                 }))
             );
 
-            console.log("✅ Timing set as active");
         } catch (err) {
             console.error("❌ Error setting active timing:", err);
         }
@@ -329,7 +351,7 @@ export default function OfficeTimes() {
                                     value={form.workingHours}
                                     onChange={(e) => {
                                         setForm({ ...form, workingHours: Number(e.target.value) });
-                                        setErrors({ ...errors, workingHours: "0" });
+                                        setErrors({ ...errors, workingHours: "" });
                                     }}
                                     className="w-full px-3 py-2 rounded-xl bg-[#1c2a3f]/80 border border-[#2e3b55] text-white outline-none hover:border-green-400 focus:border-green-400"
                                 />

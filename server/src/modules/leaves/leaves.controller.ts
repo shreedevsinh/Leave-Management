@@ -1,9 +1,11 @@
 import { Body, Controller, Post, Get, Put, Param, Query } from '@nestjs/common';
 import { LeavesService } from './leaves.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
-import { CreateLeaveTypeDto } from '../leave-types/dto/create-leave-type.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('leaves')
+@UseGuards(AuthGuard('jwt'))
 export class LeavesController {
   constructor(private readonly leavesService: LeavesService) {}
 
@@ -49,7 +51,6 @@ export class LeavesController {
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
-    console.log('month', month, 'year', year);
     return this.leavesService.getLeavesByMonth(month, year);
   }
 

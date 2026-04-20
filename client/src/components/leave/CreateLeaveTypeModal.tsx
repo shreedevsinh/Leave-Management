@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { LeaveType } from "./types";
 import Toast from "../common/Toast";
+import Cookies from "js-cookie";
 
 type Props = {
     isOpen: boolean;
@@ -13,6 +14,11 @@ export default function CreateLeaveTypeModal({
     onClose,
     onCreate,
 }: Props) {
+    const API_URL = import.meta.env.VITE_API_URL;
+
+    const token = Cookies.get("access_token");
+    if (!token) return null;
+
     const [name, setName] = useState("");
     const [maxPerYear, setMaxPerYear] = useState(0);
     const [isPaid, setIsPaid] = useState(true);
@@ -49,10 +55,10 @@ export default function CreateLeaveTypeModal({
         setLoading(true);
 
         try {
-            const res = await fetch("http://localhost:3000/leave-types", {
+            const res = await fetch(`${API_URL}/leave-types/`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     name,
@@ -70,13 +76,13 @@ export default function CreateLeaveTypeModal({
 
             onCreate(created);
 
-            
+
             // Reset form
             setName("");
             setMaxPerYear(0);
             setIsPaid(true);
             setErrors({});
-            
+
             // ✅ Success Toast
             setToast({
                 message: "Leave type created successfully!",

@@ -6,17 +6,13 @@ import {
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoService } from 'src/dynamo/dynamo.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class OfficetimeService {
   private tableName = 'OfficeTiming';
 
-  constructor(
-    private dynamo: DynamoService,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private dynamo: DynamoService) {}
 
   // ✅ Create Office Timing
   async create(data: {
@@ -72,8 +68,6 @@ export class OfficetimeService {
     try {
       await deactivateDynamoItems();
       await createDynamoItem();
-
-      console.log('✅ Office timing created in both DynamoDB');
       return newItem;
     } catch (error) {
       console.error('❌ Error creating office timing:', error);
@@ -85,16 +79,15 @@ export class OfficetimeService {
 
   // ✅ Get all Office Timings
   async getAllOfficeTimings() {
-    const client = this.dynamo.getClient();
-
-    // DynamoDB
-    const dynamoResult = await client.send(
-      new ScanCommand({ TableName: this.tableName }),
-    );
-
-    const dynamoItems = dynamoResult.Items || [];
-
-    return dynamoItems;
+    try {
+      const dynamoResult = await this.dynamo.getClient().send(
+        new ScanCommand({ TableName: this.tableName }),
+      );
+      const dynamoItems = dynamoResult.Items || [];
+      return dynamoItems;
+    } catch (err) {
+      console.error('❌ ERROR:', err);
+    }
   }
 
   // ✅ Set Active Office Timing
