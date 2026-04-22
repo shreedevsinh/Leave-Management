@@ -334,7 +334,8 @@ function Employee() {
                             isActive: editingEmployee.isActive,
                             isHourly: editingEmployee.isHourly,
                             salary: editingEmployee.salary.baseSalary, 
-                            devices: editingEmployee.devices
+                            devices: editingEmployee.devices,
+                            joinDate: editingEmployee.joinDate
                         }
                         : undefined
                 }
