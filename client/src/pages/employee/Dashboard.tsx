@@ -13,7 +13,7 @@ import Toast from "../../components/common/Toast";
 import { useLocation } from "react-router-dom";
 
 export default function EmployeeDashboard() {
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   const location = useLocation();
 
@@ -146,7 +146,7 @@ export default function EmployeeDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch(`${API_URL}/leaves/`, {
+      const res = await fetch(`${API_URL}/leaves`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

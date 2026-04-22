@@ -23,7 +23,7 @@ interface LeaveSummary {
 }
 
 export default function Profile() {
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
     const [isEditing, setIsEditing] = useState(false);
 
     const [toast, setToast] = useState<{

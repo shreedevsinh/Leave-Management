@@ -13,7 +13,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
-@Controller('users')
+@Controller('users/')
 @UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private usersService: UsersService) {}
@@ -44,7 +44,7 @@ export class UsersController {
     return this.usersService.updateUserSalaryType(String(id), body.isHourly);
   }
 
-  @Get('/employees/')
+  @Get('/employees')
   async getEmployees() {
     return this.usersService.getEmployees();
   }

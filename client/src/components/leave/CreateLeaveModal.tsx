@@ -18,7 +18,7 @@ interface LeaveType {
 }
 
 export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     const token = Cookies.get("access_token");
     if (!token) return null;
@@ -72,7 +72,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch(`${API_URL}/leave-types/`, {
+                const res = await fetch(`${API_URL}/leave-types`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -120,7 +120,7 @@ export default function CreateLeaveModal({ isOpen, onClose, onSubmit }: Props) {
             try {
                 setLoadingTypes(true);
 
-                const res = await fetch(`${API_URL}/users/employees/`, {
+                const res = await fetch(`${API_URL}/users/employees`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },

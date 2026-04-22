@@ -14,7 +14,7 @@ export default function CreateLeaveTypeModal({
     onClose,
     onCreate,
 }: Props) {
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     const token = Cookies.get("access_token");
     if (!token) return null;
@@ -55,7 +55,7 @@ export default function CreateLeaveTypeModal({
         setLoading(true);
 
         try {
-            const res = await fetch(`${API_URL}/leave-types/`, {
+            const res = await fetch(`${API_URL}/leave-types`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,

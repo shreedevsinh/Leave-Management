@@ -17,7 +17,7 @@ import Toast from "../../components/common/Toast";
 import CreateLeaveModal from "../../components/leave/CreateLeaveModal";
 
 export default function AdminDashboard() {
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   const [open, setOpen] = useState(false);
 
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
     try {
       const query = buildQuery(key);
 
-      const res = await fetch(`${API_URL}/leaves/?${query}`, {
+      const res = await fetch(`${API_URL}/leaves?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -284,7 +284,7 @@ export default function AdminDashboard() {
 
   const handleCreateLeave = async (data: any) => {
     try {
-      const res = await fetch(`${API_URL}/leaves/`, {
+      const res = await fetch(`${API_URL}/leaves`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
