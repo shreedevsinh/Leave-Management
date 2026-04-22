@@ -58,6 +58,7 @@ if [ "$API_URL" != "None" ] && [ -n "$API_URL" ]; then
   echo "✅ API URL set: $API_URL"
 else
   echo "❌ ERROR: API URL not found"
+  export VITE_API_URL = "http://localhost:3000"
   exit 1
 fi
 

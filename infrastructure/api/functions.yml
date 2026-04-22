@@ -2,12 +2,18 @@ attendance:
   handler: ./dist/lambdas/lambda-attendance.handler
   events:
     - httpApi:
+        path: /attendance
+        method: ANY
+    - httpApi:
         path: /attendance/{proxy+}
         method: ANY
 
 auth:
   handler: ./dist/lambdas/lambda-auth.handler
   events:
+    - httpApi:
+        path: /auth
+        method: ANY
     - httpApi:
         path: /auth/{proxy+}
         method: ANY
@@ -16,6 +22,9 @@ users:
   handler: ./dist/lambdas/lambda-users.handler
   events:
     - httpApi:
+        path: /users
+        method: ANY
+    - httpApi:
         path: /users/{proxy+}
         method: ANY
 
@@ -23,15 +32,18 @@ leaves:
   handler: ./dist/lambdas/lambda-leaves.handler
   events:
     - httpApi:
-        path: /leaves/{proxy+}
+        path: /leaves
         method: ANY
     - httpApi:
-        path: /leaves
+        path: /leaves/{proxy+}
         method: ANY
 
 leaveTypes:
   handler: ./dist/lambdas/lambda-leave-types.handler
   events:
+    - httpApi:
+        path: /leave-types
+        method: ANY
     - httpApi:
         path: /leave-types/{proxy+}
         method: ANY
@@ -40,6 +52,9 @@ officeTime:
   handler: ./dist/lambdas/lambda-officetime.handler
   events:
     - httpApi:
+        path: /officetime
+        method: ANY
+    - httpApi:
         path: /officetime/{proxy+}
         method: ANY
 
@@ -47,10 +62,10 @@ payRoll:
   handler: ./dist/lambdas/lambda-payroll.handler
   events:
     - httpApi:
-        path: /payroll/{proxy+}
+        path: /payroll
         method: ANY
     - httpApi:
-        path: /payroll
+        path: /payroll/{proxy+}
         method: ANY
 
 

@@ -20,7 +20,7 @@ type Leave = {
 };
 
 export default function LeaveContainer() {
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     const today = new Date();
 
@@ -123,7 +123,7 @@ export default function LeaveContainer() {
     /* Leave Types API */
     const fetchLeaveTypes = async () => {
         try {
-            const res = await fetch(`${API_URL}/leave-types/`, {
+            const res = await fetch(`${API_URL}/leave-types`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },

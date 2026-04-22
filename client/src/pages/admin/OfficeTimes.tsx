@@ -12,7 +12,7 @@ type OfficeTiming = {
 };
 
 export default function OfficeTimes() {
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
     const [open, setOpen] = useState(false);
     const [activePicker, setActivePicker] = useState<"start" | "end" | null>(null);
     const [timings, setTimings] = useState<OfficeTiming[]>([]);
@@ -29,7 +29,7 @@ export default function OfficeTimes() {
             }
 
 
-            const res = await fetch(`${API_URL}/officetime/`, {
+            const res = await fetch(`${API_URL}/officetime`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
@@ -167,7 +167,7 @@ export default function OfficeTimes() {
         };
 
         try {
-            const res = await fetch(`${API_URL}/officetime/`, {
+            const res = await fetch(`${API_URL}/officetime`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

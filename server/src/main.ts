@@ -5,14 +5,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(
-    AppModule,
-    new FastifyAdapter(),
-  );
+  const app = await NestFactory.create(AppModule, new FastifyAdapter());
 
   // ✅ Enable CORS
   app.enableCors({
-    origin: 'https://dq5e5ftzpgj4b.cloudfront.net',
+    origin: ['https://dq5e5ftzpgj4b.cloudfront.net', 'http://localhost:5173'],
+    allowedHeaders: 'Content-Type, Authorization',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
