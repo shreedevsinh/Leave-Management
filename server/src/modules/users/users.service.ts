@@ -464,6 +464,7 @@ export class UsersService {
           isActive: u.isActive,
           isHourly: u.isHourly,
           devices: u.devices,
+          joinDate: u.joinDate,
           salary: salary
             ? {
                 id: salary.id,
