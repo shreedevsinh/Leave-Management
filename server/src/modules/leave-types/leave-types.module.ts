@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LeaveTypesController } from './leave-types.controller';
 import { LeaveTypesService } from './leave-types.service';
-import { DynamoModule } from 'src/dynamo/dynamo.module';
+import { DynamoModule } from '../../dynamo/dynamo.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({

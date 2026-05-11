@@ -9,6 +9,7 @@ import { LeaveTypesModule } from './modules/leave-types/leave-types.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { OfficetimeModule } from './modules/officetime/officetime.module';
+import { HolidayModule } from './modules/holiday/holiday.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { OfficetimeModule } from './modules/officetime/officetime.module';
     PayrollModule,
     AttendanceModule,
     OfficetimeModule,
+    HolidayModule,
   ],
 })
 export class AppModule {}

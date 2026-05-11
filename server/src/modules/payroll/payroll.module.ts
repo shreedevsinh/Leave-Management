@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { PayrollController } from './payroll.controller';
-import { DynamoModule } from 'src/dynamo/dynamo.module';
+import { DynamoModule } from '../../dynamo/dynamo.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({

@@ -6,6 +6,7 @@ import LeaveCalendar from "./LeaveCalendar";
 import LeaveModal from "./LeaveModal";
 import LeaveTypesModal from "./LeaveTypesModal";
 import CreateLeaveTypeModal from "./CreateLeaveTypeModal";
+import CreateHolidayModal from "./CreateHolidayModal";
 import ConfirmModal from "../common/ConfirmModal";
 import type { LeaveType } from "./types";
 
@@ -34,6 +35,7 @@ export default function LeaveContainer() {
     const [openLeaveTypes, setOpenLeaveTypes] = useState(false);
     const [openCreateLeaveType, setOpenCreateLeaveType] = useState(false);
     const [openCreateLeave, setOpenCreateLeave] = useState(false);
+    const [openCreateHoliday, setOpenCreateHoliday] = useState(false);
     console.log("openCreateLeave ==> ", openCreateLeave);
 
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -46,6 +48,9 @@ export default function LeaveContainer() {
 
     /* ✅ FIXED TYPE */
     const [leaves, setLeaves] = useState<Leave[]>([]);
+
+    const [holidays, setHolidays] = useState<any[]>([]);
+    const [deleteHolidayId, setDeleteHolidayId] = useState<string | null>(null);
 
     /* ✅ Fetch + expand multi-day leaves */
     const fetchLeaves = async () => {
@@ -104,6 +109,59 @@ export default function LeaveContainer() {
     useEffect(() => {
         fetchLeaves();
     }, [currentMonth, currentYear]);
+
+    /* ✅ Fetch holidays */
+
+    const fetchHolidays = async () => {
+        try {
+            const res = await fetch(`${API_URL}/holidays/monthly?month=${currentMonth + 1}&year=${currentYear}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to fetch holidays");
+            }
+
+            const data = await res.json();
+            setHolidays(data || []);
+        }
+        catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        fetchHolidays();
+    }, [currentMonth, currentYear, openCreateHoliday]);
+
+    const handleDeleteHoliday = (holidayId: string) => {
+        setDeleteHolidayId(holidayId);
+    };
+
+    const confirmDeleteHoliday = async () => {
+        if (!deleteHolidayId) return;
+
+        try {
+            const res = await fetch(`${API_URL}/holidays/${deleteHolidayId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to delete holiday");
+            }
+
+            fetchHolidays();
+        } catch (error) {
+            console.error("Error deleting holiday:", error);
+        } finally {
+            setDeleteHolidayId(null);
+        }
+    };
 
     /* Calendar helpers */
     const getDaysInMonth = (year: number, month: number) =>
@@ -215,6 +273,7 @@ export default function LeaveContainer() {
                 }}
                 onOpenLeaveTypes={() => setOpenLeaveTypes(true)}
                 onOpenCreateLeave={() => setOpenCreateLeave(true)}
+                onOpenCreateHoliday={() => setOpenCreateHoliday(true)}
             />
 
             <LeaveCalendar
@@ -226,6 +285,8 @@ export default function LeaveContainer() {
                 currentYear={currentYear}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
+                holidays={holidays}
+                onDeleteHoliday={handleDeleteHoliday}
             />
 
             <LeaveModal
@@ -242,6 +303,11 @@ export default function LeaveContainer() {
                 onDelete={handleDeleteClick}
             />
 
+            <CreateHolidayModal
+                isOpen={openCreateHoliday}
+                onClose={() => setOpenCreateHoliday(false)}
+            />
+
             <CreateLeaveTypeModal
                 isOpen={openCreateLeaveType}
                 onClose={() => setOpenCreateLeaveType(false)}
@@ -254,6 +320,14 @@ export default function LeaveContainer() {
                 message="Are you sure you want to delete this leave type?"
                 onConfirm={handleLeaveTypeDelete}
                 onCancel={() => setDeleteId(null)}
+            />
+
+            <ConfirmModal
+                isOpen={deleteHolidayId !== null}
+                title="Delete Holiday"
+                message="Are you sure you want to delete this holiday?"
+                onConfirm={confirmDeleteHoliday}
+                onCancel={() => setDeleteHolidayId(null)}
             />
         </div>
     );

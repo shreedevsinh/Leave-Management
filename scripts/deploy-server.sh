@@ -15,7 +15,8 @@ rm -rf node_modules .serverless
 # -------------------------------
 echo "📦 Installing dependencies..."
 
-npm ci --omit=dev
+# npm ci --omit=dev
+npm i
 
 # -------------------------------
 # 2. Build Project

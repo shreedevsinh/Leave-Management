@@ -58,6 +58,7 @@ export default function CreateLeaveTypeModal({
             const res = await fetch(`${API_URL}/leave-types`, {
                 method: "POST",
                 headers: {
+                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
@@ -67,15 +68,18 @@ export default function CreateLeaveTypeModal({
                 }),
             });
 
+            const data = await res.json();
+
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Failed to create leave type");
+                throw new Error(
+                    data.message || "Failed to create leave type"
+                );
             }
 
-            const created = await res.json();
+            const createdLeaveType = data.leaveType;
 
-            onCreate(created);
-
+            // Parent callback
+            onCreate(createdLeaveType);
 
             // Reset form
             setName("");
@@ -83,19 +87,24 @@ export default function CreateLeaveTypeModal({
             setIsPaid(true);
             setErrors({});
 
-            // ✅ Success Toast
+            // Success Toast
             setToast({
-                message: "Leave type created successfully!",
+                message:
+                    data.message ||
+                    "Leave type created successfully!",
                 type: "success",
             });
 
             onClose();
         } catch (error: any) {
-            console.error("Create Leave Type Error:", error.message);
+            console.error(
+                "❌ Create Leave Type Error:",
+                error
+            );
 
-            // ❌ Error Toast
             setToast({
-                message: error.message || "Something went wrong",
+                message:
+                    error.message || "Something went wrong",
                 type: "error",
             });
         } finally {

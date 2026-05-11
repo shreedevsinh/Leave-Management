@@ -5,14 +5,12 @@ import {
 } from '@nestjs/common';
 import { PutCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { CreateLeaveTypeDto } from '../leave-types/dto/create-leave-type.dto';
-import { DynamoService } from 'src/dynamo/dynamo.service';
+import { DynamoService } from '../../dynamo/dynamo.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class LeaveTypesService {
-  constructor(
-    private dynamo: DynamoService,
-  ) {}
+  constructor(private dynamo: DynamoService) {}
 
   async getAllLeaveTypes() {
     try {
@@ -32,14 +30,16 @@ export class LeaveTypesService {
     }
   }
 
-  async createLeaveType(data: CreateLeaveTypeDto) {
-    const { name, maxPerYear, isPaid } = data;
+  async createLeaveType(dto: CreateLeaveTypeDto) {
+    const { name, maxPerYear, isPaid } = dto;
+
     const parsedMax = Number(maxPerYear);
 
-    // ✅ Generate ID manually (important)
-    const id = uuidv4(); // or use uuid()
+    // ✅ Generate UUID
+    const id = uuidv4();
 
     try {
+      // ✅ Check existing leave type
       const existingType = await this.dynamo.getClient().send(
         new ScanCommand({
           TableName: 'LeaveTypes',
@@ -53,30 +53,43 @@ export class LeaveTypesService {
         }),
       );
 
-      const count = existingType.Count ?? 0;
-
-      if (count > 0) {
+      if ((existingType.Count ?? 0) > 0) {
         throw new BadRequestException(
           `Leave type with name '${name}' already exists`,
         );
       }
 
-      // ✅ 1. Create in DynamoDB FIRST
-      const type = await this.dynamo.getClient().send(
+      // ✅ Create item object
+      const item = {
+        id,
+        name,
+        maxPerYear: parsedMax,
+        isPaid,
+        createdAt: new Date().toISOString(),
+      };
+
+      // ✅ Insert into DynamoDB
+      await this.dynamo.getClient().send(
         new PutCommand({
           TableName: 'LeaveTypes',
-          Item: {
-            id,
-            name,
-            maxPerYear: parsedMax,
-            isPaid,
-          },
+          Item: item,
         }),
       );
 
-      return type;
+      // ✅ Return inserted item
+      return {
+        success: true,
+        message: 'Leave type created successfully',
+        leaveType: item,
+      };
     } catch (err) {
-      console.error(err);
+      console.error('❌ createLeaveType error:', err);
+
+      // ✅ Preserve existing HTTP exceptions
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+
       throw new InternalServerErrorException('Failed to create leave type');
     }
   }

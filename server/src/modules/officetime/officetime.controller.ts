@@ -24,6 +24,11 @@ export class OfficetimeController {
     return this.officetimeService.getAllOfficeTimings();
   }
 
+  @Get('active')
+  getActiveOfficeTiming(@Req() req) {
+    return this.officetimeService.getActiveOfficeTiming();
+  }
+
   // ✅ Set active office timing
   @Put('/active/:id')
   activateOfficeTime(@Param('id') id: string) {

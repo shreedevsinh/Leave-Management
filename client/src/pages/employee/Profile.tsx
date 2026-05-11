@@ -145,7 +145,7 @@ export default function Profile() {
                 ...(profile.password && { password: profile.password }),
             };
 
-            const { data } = await axios.put(
+            await axios.put(
                 `${API_URL}/users/user/${userId}`,
                 payload,
                 {
@@ -157,7 +157,6 @@ export default function Profile() {
 
             setProfile((prev) => ({ ...prev, password: "" }));
             setIsEditing(false);
-            console.log(data);
 
             setToast({
                 message: "Profile updated successfully",

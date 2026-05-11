@@ -291,3 +291,42 @@ Resources:
           Projection:
             ProjectionType: ALL
   
+  # -------------------------------
+  # Holiday Table
+  # -------------------------------
+  HolidayTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Holiday
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+
+        - AttributeName: date
+          AttributeType: S
+
+        - AttributeName: year
+          AttributeType: N
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        # Query by exact date
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+        # Query all holidays of a year
+        - IndexName: year-index
+          KeySchema:
+            - AttributeName: year
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL

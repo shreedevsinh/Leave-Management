@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { DynamoService } from 'src/dynamo/dynamo.service';
+import { DynamoService } from '../../dynamo/dynamo.service';
 import {
   PutCommand,
   UpdateCommand,

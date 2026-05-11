@@ -1,5 +1,7 @@
 service: leave-management-app
 
+# frameworkVersion: '3'
+
 provider:
   name: aws
   runtime: nodejs20.x
@@ -8,8 +10,7 @@ provider:
   memorySize: 1024
 
   environment:
-    DATABASE_URL: ${env:DATABASE_URL}
-    JWT_SECRET: ${env:JWT_SECRET}
+    JWT_SECRET: dhbrW6d4J6JsEBeNgeJm16xduZOdWd1bMSoF28FzQqy
     NODE_ENV: production
     FRONTEND_URL: ${env:FRONTEND_URL}, 'http://localhost:5173'
 
@@ -32,7 +33,7 @@ provider:
       maxAge: 3600
 
   iamRoleStatements:
-    - Effect: "Allow"
+    - Effect: Allow
       Action:
         - dynamodb:GetItem
         - dynamodb:Scan
@@ -42,81 +43,75 @@ provider:
         - dynamodb:DeleteItem
         - dynamodb:BatchGetItem
         - dynamodb:BatchWriteItem
-
       Resource:
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes"
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes/index/*"
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Users
+        - arn:aws:dynamodb:ap-south-1:*:table/Users/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Leaves
+        - arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances
+        - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Attendance
+        - arn:aws:dynamodb:ap-south-1:*:table/Attendance/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming
+        - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Payrolls
+        - arn:aws:dynamodb:ap-south-1:*:table/Payrolls/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Salaries
+        - arn:aws:dynamodb:ap-south-1:*:table/Salaries/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/Holiday
+        - arn:aws:dynamodb:ap-south-1:*:table/Holiday/index/*
 
-        - "arn:aws:dynamodb:ap-south-1:*:table/Users"
-        - "arn:aws:dynamodb:ap-south-1:*:table/Users/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/Leaves"
-        - "arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs"
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances"
-        - "arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/Attendance"
-        - "arn:aws:dynamodb:ap-south-1:*:table/Attendance/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming"
-        - "arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/Payrolls"
-        - "arn:aws:dynamodb:ap-south-1:*:table/Payrolls/index/*"
-
-        - "arn:aws:dynamodb:ap-south-1:*:table/Salaries"
-        - "arn:aws:dynamodb:ap-south-1:*:table/Salaries/index/*"
-
-    - Effect: "Allow"
+    - Effect: Allow
       Action:
         - logs:CreateLogGroup
         - logs:CreateLogStream
         - logs:PutLogEvents
-      Resource: "*"
+      Resource: '*'
 
 functions:
-  - ${file(../infrastructure/api/functions.yml)}
+  ${file(../infrastructure/api/functions.yml)}
 
 package:
   individually: true
+
   patterns:
-    - '!**/*.md'
-    - '!**/*.map'
-    - '!**/node_modules/aws-sdk/**'
-    - '!**/node_modules/@prisma/engines/**'
-    - '!**/node_modules/.prisma/client/query-engine-*'
+    - '!node_modules/**/test/**'
+    - '!node_modules/**/tests/**'
+    - '!node_modules/**/*.md'
+    - '!node_modules/**/*.map'
+    - '!node_modules/**/*.ts'
+    - '!node_modules/**/.github/**'
+    - '!node_modules/**/docs/**'
+    - '!node_modules/aws-sdk/**'
 
-    # Prisma binaries (IMPORTANT)
-    - 'node_modules/.prisma/client/query-engine-rhel-openssl-1.0.x'
-    - 'node_modules/.prisma/client/query-engine-rhel-openssl-3.0.x'
-    - 'prisma/schema.prisma'
-
-    # AWS SDK v3
-    - 'node_modules/@aws-sdk/**'
+    - '!dist/**/*.map'
 
 custom:
   esbuild:
     bundle: true
-    minify: false
+    minify: true
     sourcemap: false
     target: node20
     platform: node
+
+    # IMPORTANT FIXES
+    concurrency: 1
+    zipConcurrency: 1
+
     keepNames: true
+    packager: npm
+
     external:
       - aws-sdk
-      - fast-crc32c
-      - '@node-rs/xxhash'
-      - '@node-rs/crc32'
-      - '@nestjs/microservices'
-      - '@nestjs/websockets/socket-module'
+      - '@prisma/client'
       - sharp
       - bcrypt
-      - '@prisma/client'
-
+      - '@nestjs/websockets'
+      - '@nestjs/microservices'
 
 resources:
   # - ${file(../infrastructure/dynamodb/tables.yml)}

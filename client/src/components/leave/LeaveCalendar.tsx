@@ -10,6 +10,8 @@ type Props = {
     currentYear: number;
     selectedDate: string | null;
     setSelectedDate: (date: string) => void;
+    holidays: any[];
+    onDeleteHoliday: (holidayId: string) => void;
 };
 
 export default function LeaveCalendar(props: Props) {

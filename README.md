@@ -1,6 +1,6 @@
 # 🗓️ Leaves Management System
 
-A **Full-Stack Leaves Management System** built using **NestJS, React, Prisma ORM, and MySQL**.
+A **Full-Stack Leaves Management System** built using **NestJS, React and AWS services **.
 This system helps manage employee leaves, meetings, and events with a modern and user-friendly interface.
 
 ---
@@ -10,10 +10,10 @@ This system helps manage employee leaves, meetings, and events with a modern and
 ### Server
 
 * NestJS
-* Prisma ORM
-* MySQL (AWS RDS)
 * JWT Authentication
-* REST API
+* AWS DynamoDB
+* AWS API Gateway
+* AWS Lambda
 
 ### Client
 
@@ -22,36 +22,103 @@ This system helps manage employee leaves, meetings, and events with a modern and
 * TypeScript
 * Tailwind CSS
 * Lucide Icons
+* AWS CloudFront
+* AWS S3
 
 ---
 
 # 📂 Project Structure
 
 ```
-leaves-management-system
+leave-management/
 │
-├── client
-│   ├── src
-│   │   ├── components
-│   │   ├── pages
-│   │   ├── services
-│   │   ├── hooks
+├── client/
+│   ├── node_modules/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── layouts/
+│   │   ├── pages/
+│   │   │   ├── admin/
+│   │   │   ├── auth/
+│   │   │   ├── employee/
+│   │   │   └── leave/
+│   │   ├── services/
+│   │   ├── types/
 │   │   ├── App.tsx
+│   │   ├── index.css
 │   │   └── main.tsx
-│   └── package.json
+│   │
+│   ├── .gitignore
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
 │
-├── server
-│   ├── src
-│   │   ├── auth
-│   │   ├── employees
-│   │   ├── leaves
-│   │   ├── calendar
+├── infrastructure/
+│   ├── api/
+│   ├── dynamodb/
+│   ├── iam/
+│   ├── s3/
+│   └── outputs.yml
+│
+├── scripts/
+│
+├── server/
+│   ├── src/
+│   │   │
+│   │   ├── common/                  # Reusable shared code
+│   │   │   ├── decorators/
+│   │   │   ├── filters/
+│   │   │   ├── guards/
+│   │   │   ├── interceptors/
+│   │   │   └── utils/
+│   │   │
+│   │   ├── config/                  # Env & config setup
+│   │   │
+│   │   ├── dynamo/                  # DynamoDB logic (if used)
+│   │   │
+│   │   ├── modules/                 # All business modules
+│   │   │   ├── auth/
+│   │   │   ├── users/
+│   │   │   ├── employees/
+│   │   │   ├── attendance/
+│   │   │   ├── leaves/
+│   │   │   ├── leave-types/
+│   │   │   ├── officetime/
+│   │   │   ├── holidays/
+│   │   │   └── payroll/
+│   │   │
+│   │   ├── lambdas/                 # Serverless entry points
+│   │   │   ├── auth.lambda.ts
+│   │   │   ├── users.lambda.ts
+│   │   │   ├── employees.lambda.ts
+│   │   │   ├── attendance.lambda.ts
+│   │   │   ├── leaves.lambda.ts
+│   │   │   ├── leave-types.lambda.ts
+│   │   │   ├── officetime.lambda.ts
+│   │   │   ├── holidays.lambda.ts
+│   │   │   └── payroll.lambda.ts
+│   │   │
+│   │   ├── prisma/                  # Prisma schema
+│   │   │   └── schema.prisma
+│   │   │
+│   │   ├── app.module.ts
+│   │   ├── app.controller.ts
+│   │   ├── app.service.ts
 │   │   └── main.ts
-│   │
-│   ├── prisma
-│   │   └── schema.prisma
-│   │
-│   └── package.json
+│   ├── .env
+│   ├── serverless.yml
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── tsconfig.build.json
 │
 └── README.md
 ```
@@ -63,7 +130,7 @@ leaves-management-system
 ## 1️⃣ Clone Repository
 
 ```
-git clone https://github.com/your-username/leaves-management-system.git
+git clone https://github.com/pragneysh/Leave-Management.git
 cd leaves-management-system
 ```
 
@@ -79,27 +146,7 @@ npm install
 Create `.env`
 
 ```
-DATABASE_URL="mysql://username:password@localhost:3306/leaves_db"
 JWT_SECRET="your_secret_key"
-```
-
-Install Prisma (v5)
-
-```
-npm install prisma@5 --save-dev
-npm install @prisma/client@5
-```
-
-Run Prisma migration
-
-```
-npx prisma migrate dev
-```
-
-Generate Prisma client
-
-```
-npx prisma generate
 ```
 
 Start server
@@ -130,22 +177,10 @@ Client will run on:
 http://localhost:5173
 ```
 
----
-
-# 🗄 Database (Prisma)
-
-Open Prisma Studio
-
-```
-npx prisma studio
-```
-
----
-
 # ✨ Features
 
 * Employee Leave Management
-* Calendar View (Leaves, Meetings, Events)
+* Calendar View (Leaves)
 * Add / Edit / Delete Leaves
 * Employee Management
 * JWT Authentication
@@ -169,11 +204,32 @@ app.enableCors({
 
 ---
 
-### Prisma Issues
+# 🚀 Deployment
 
+This project uses a deployment script for automated infrastructure and application deployment.
+
+### Run Deployment Script
+
+```bash
+./scripts/deploy.sh
 ```
-npx prisma generate
+
+### Make Script Executable (First Time Only)
+
+```bash
+chmod +x ./scripts/deploy.sh
 ```
+
+This script will:
+
+- Deploy AWS infrastructure
+- Deploy NestJS Lambda services
+- Build and deploy React client to AWS S3
+- Configure CloudFront distribution
+- Update required outputs
+
+---
+
 
 ---
 

@@ -1,5 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 // import ChevronRight from "@heroicons/react/24/solid/ChevronRightIcon";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 
 type Props = {
     currentMonth: number;
@@ -7,10 +9,17 @@ type Props = {
     onChange: (dir: "prev" | "next") => void;
     onOpenLeaveTypes: () => void;
     onOpenCreateLeave: () => void;
+    onOpenCreateHoliday: () => void;
 };
 
-export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpenLeaveTypes }: Props) {
+export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpenLeaveTypes, onOpenCreateHoliday }: Props) {
 
+    // 🔐 Auth
+    const token = Cookies.get("access_token");
+    if (!token) return null;
+
+    const decoded: any = jwtDecode(token);
+    const role = decoded.role;
 
     return (
         <div className="flex justify-between items-center mb-6">
@@ -46,6 +55,14 @@ export default function LeaveHeader({ currentMonth, currentYear, onChange, onOpe
                 </div>
             </div>
             <div className="flex gap-4">
+                {role === "ADMIN" && (
+                <button
+                    onClick={onOpenCreateHoliday}
+                    className="button-gradient">
+                    <span className="relative z-10">Create Holidays</span>
+                    <span className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition rounded-xl"></span>
+                </button>
+                )}
                 <button
                     onClick={onOpenLeaveTypes}
                     className="button-gradient">
