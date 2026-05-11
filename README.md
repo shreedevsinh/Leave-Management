@@ -212,6 +212,8 @@ This project uses a deployment script for automated infrastructure and applicati
 
 ```bash
 ./scripts/deploy.sh
+./scripts/deploy-server.sh
+./scripts/deploy-client.sh
 ```
 
 ### Make Script Executable (First Time Only)
