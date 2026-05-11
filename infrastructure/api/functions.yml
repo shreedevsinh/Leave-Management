@@ -1,5 +1,5 @@
 attendance:
-  handler: ./dist/lambdas/lambda-attendance.handler
+  handler: ./dist/src/lambdas/lambda-attendance.handler
   events:
     - httpApi:
         path: /attendance
@@ -9,7 +9,7 @@ attendance:
         method: ANY
 
 auth:
-  handler: ./dist/lambdas/lambda-auth.handler
+  handler: ./dist/src/lambdas/lambda-auth.handler
   events:
     - httpApi:
         path: /auth
@@ -19,7 +19,7 @@ auth:
         method: ANY
 
 users:
-  handler: ./dist/lambdas/lambda-users.handler
+  handler: ./dist/src/lambdas/lambda-users.handler
   events:
     - httpApi:
         path: /users
@@ -29,7 +29,7 @@ users:
         method: ANY
 
 leaves:
-  handler: ./dist/lambdas/lambda-leaves.handler
+  handler: ./dist/src/lambdas/lambda-leaves.handler
   events:
     - httpApi:
         path: /leaves
@@ -39,7 +39,7 @@ leaves:
         method: ANY
 
 leaveTypes:
-  handler: ./dist/lambdas/lambda-leave-types.handler
+  handler: ./dist/src/lambdas/lambda-leave-types.handler
   events:
     - httpApi:
         path: /leave-types
@@ -49,7 +49,7 @@ leaveTypes:
         method: ANY
 
 officeTime:
-  handler: ./dist/lambdas/lambda-officetime.handler
+  handler: ./dist/src/lambdas/lambda-officetime.handler
   events:
     - httpApi:
         path: /officetime
@@ -59,13 +59,23 @@ officeTime:
         method: ANY
 
 payRoll:
-  handler: ./dist/lambdas/lambda-payroll.handler
+  handler: ./dist/src/lambdas/lambda-payroll.handler
   events:
     - httpApi:
         path: /payroll
         method: ANY
     - httpApi:
         path: /payroll/{proxy+}
+        method: ANY
+
+holiday:
+  handler: ./dist/src/lambdas/lambda-holiday.handler
+  events:
+    - httpApi:
+        path: /holidays
+        method: ANY
+    - httpApi:
+        path: /holidays/{proxy+}
         method: ANY
 
 

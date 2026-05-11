@@ -1,0 +1,42 @@
+service: leave-management-db
+
+provider:
+  name: aws
+  region: ap-south-1
+
+resources:
+  Resources:
+    HolidayTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Holiday
+        BillingMode: PAY_PER_REQUEST
+
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+
+          - AttributeName: date
+            AttributeType: S
+
+          - AttributeName: year
+            AttributeType: N
+
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+        GlobalSecondaryIndexes:
+          - IndexName: date-index
+            KeySchema:
+              - AttributeName: date
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+          - IndexName: year-index
+            KeySchema:
+              - AttributeName: year
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL

@@ -36,8 +36,8 @@ function UpdateSalaryFormModal({ isOpen, onClose, onUpdate, data }: Props) {
             setForm({
                 id: data.id,
                 employeeName: data.name,
-                currentSalary: data.salary || 0,
-                newSalary: data.currentSalary || 0,
+                currentSalary: data.currentSalary || 0,
+                newSalary: data.salary || 0,
             });
         }
 

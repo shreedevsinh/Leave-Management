@@ -5,7 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { DynamoModule } from '../../dynamo/dynamo.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtStrategy } from 'src/common/guards/jwt.strategy';
+import { JwtStrategy } from '../../common/guards/jwt.strategy';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { JwtStrategy } from 'src/common/guards/jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '1h' },
+        signOptions: { expiresIn: '7d' },
       }),
     }),
   ],

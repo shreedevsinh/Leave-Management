@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Query } from '@nestjs/common';
 import {
   PutCommand,
   ScanCommand,
   UpdateCommand,
   DeleteCommand,
+  QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { DynamoService } from 'src/dynamo/dynamo.service';
+import { DynamoService } from '../../dynamo/dynamo.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -87,6 +88,28 @@ export class OfficetimeService {
       return dynamoItems;
     } catch (err) {
       console.error('❌ ERROR:', err);
+    }
+  }
+
+  async getActiveOfficeTiming() {
+    try {
+      const dynamoResult = await this.dynamo.getClient().send(
+        new ScanCommand({
+          TableName: this.tableName,
+          FilterExpression: 'isActive = :active',
+          ExpressionAttributeValues: {
+            ':active': true,
+          },
+        }),
+      );
+
+      const dynamoItems = dynamoResult.Items || [];
+
+      // return first active office timing
+      return dynamoItems[0] || null;
+    } catch (err) {
+      console.error('❌ ERROR:', err);
+      throw err;
     }
   }
 

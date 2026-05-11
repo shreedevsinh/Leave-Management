@@ -197,7 +197,6 @@ export default function OfficeTimes() {
             const res = await fetch(`${API_URL}/officetime/active/${id}`, {
                 method: "PUT", 
                 headers: {
-                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 }
             });

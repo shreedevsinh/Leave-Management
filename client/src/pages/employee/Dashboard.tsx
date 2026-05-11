@@ -38,6 +38,9 @@ export default function EmployeeDashboard() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isCheckedOut, setIsCheckedOut] = useState(false);
 
+  const today = new Date().getDay();
+  const isWeekday = today >= 1 && today <= 5;
+
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -255,7 +258,7 @@ export default function EmployeeDashboard() {
     } catch (error: any) {
       console.error(error);
       setToast({
-        message:error.message,
+        message: error.message,
         type: "error",
       });
     }
@@ -318,11 +321,11 @@ export default function EmployeeDashboard() {
 
           <div className="flex flex-wrap gap-3">
             <div className="flex gap-3">
-              {!isCheckedOut && (
+              {isWeekday && !isCheckedOut && (
                 <button
                   onClick={handleAttendance}
                   className={`px-4 py-2 rounded-xl font-semibold transition
-                    ${isCheckedIn
+        ${isCheckedIn
                       ? "bg-gradient-to-r from-red-500 to-orange-400 text-[#0f1e33]"
                       : "bg-gradient-to-r from-green-400 to-teal-400 text-[#0f1e33]"
                     } hover:opacity-90`}

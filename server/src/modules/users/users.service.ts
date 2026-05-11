@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { DynamoService } from 'src/dynamo/dynamo.service';
+import { DynamoService } from '../../dynamo/dynamo.service';
 import {
   PutCommand,
   DeleteCommand,
@@ -62,7 +62,7 @@ export class UsersService {
             role: data.role,
             isActive: data.isActive ?? true,
             joinDate: data.joinDate.toString(),
-            salary: data.salary,
+            salary: data.salary || 0,
             isHourly: false,
             createdAt: now,
             updatedAt: now,
@@ -465,12 +465,7 @@ export class UsersService {
           isHourly: u.isHourly,
           devices: u.devices,
           joinDate: u.joinDate,
-          salary: salary
-            ? {
-                id: salary.id,
-                baseSalary: salary.baseSalary,
-              }
-            : null,
+          salary: u.salary || salary?.baseSalary || 0, // ✅ direct salary or fallback to active salary table
         };
       });
     } catch (error) {

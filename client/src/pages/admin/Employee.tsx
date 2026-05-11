@@ -16,10 +16,7 @@ interface Employee {
     mobile: string;
     isActive: boolean;
     joinDate: string;
-    salary: {
-        id?: string; // ✅ optional
-        baseSalary: number;
-    };
+    salary: number;
     isHourly: boolean;
     devices: string;
 }
@@ -60,10 +57,7 @@ function Employee() {
             const data: Employee[] = await res.json();
             const normalized = data.map(emp => ({
                 ...emp,
-                salary: {
-                    baseSalary: Number(emp.salary?.baseSalary ?? emp.salary ?? 0),
-                    id: emp.salary?.id,
-                },
+                salary: Number(emp.salary || 0),
             }));
 
             setEmployees(normalized);
@@ -83,9 +77,7 @@ function Employee() {
         try {
             const payload = {
                 ...data,
-                salary: {
-                    baseSalary: data.salary || 0,
-                },
+                salary: data.salary || 0
             };
 
             const res = await fetch(`${API_URL}/users/`, {
@@ -110,9 +102,6 @@ function Employee() {
         try {
             const payload = {
                 ...data,
-                salary: {
-                    baseSalary: data.salary || 0,
-                },
             };
 
             const res = await fetch(`${API_URL}/users/${id}`, {
@@ -185,7 +174,6 @@ function Employee() {
             body: JSON.stringify({ isHourly }),
         })
             .then((res) => res.json())
-            .then((data) => console.log(data))
             .catch((error) => console.error("Error updating hourly:", error));
         setEmployees((prev) =>
             prev.map((emp) =>
@@ -248,7 +236,7 @@ function Employee() {
                                 <span className="text-gray-300">{emp.mobile}</span>
                                 <span className="text-gray-300">
                                     <IndianRupee className="inline-block mr-1" size={16} />
-                                    {Number(emp.salary?.baseSalary) || 0}
+                                    {Number(emp.salary) || 0}
                                 </span>
                                 <button
                                     onClick={() => toggleHourly(emp.id, !emp.isHourly)}
@@ -279,7 +267,7 @@ function Employee() {
                                             setUpdateSalary({
                                                 id: emp.id,
                                                 name: emp.name,
-                                                salary: emp.salary.baseSalary, // ✅ convert
+                                                salary: emp.salary || 0, // ✅ convert
                                             });
                                             setUpdateSalaryModalOpen(true);
                                         }}
@@ -333,7 +321,7 @@ function Employee() {
                             mobile: editingEmployee.mobile,
                             isActive: editingEmployee.isActive,
                             isHourly: editingEmployee.isHourly,
-                            salary: editingEmployee.salary.baseSalary, 
+                            salary: editingEmployee.salary || 0,
                             devices: editingEmployee.devices,
                             joinDate: editingEmployee.joinDate
                         }

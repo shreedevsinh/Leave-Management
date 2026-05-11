@@ -14,8 +14,8 @@ export class LeaveTypesController {
   }
 
   @Post()
-  async createLeaveType(@Body() dto: CreateLeaveTypeDto) {
-    return this.LeaveTypesService.createLeaveType(dto);
+  async createLeaveType(@Body() data: CreateLeaveTypeDto) {
+    return this.LeaveTypesService.createLeaveType(data);
   }
 
   @Delete('/:id')

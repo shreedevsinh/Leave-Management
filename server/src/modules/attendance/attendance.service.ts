@@ -3,7 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { DynamoService } from 'src/dynamo/dynamo.service';
+import { DynamoService } from '../../dynamo/dynamo.service';
 import { PayrollService } from '../payroll/payroll.service';
 import {
   PutCommand,
@@ -94,6 +94,27 @@ export class AttendanceService {
 
       const officeTiming = officeTimingResult.Items[0];
 
+      const endTimeStr = officeTiming.endTime; // '1970-01-01T14:15:00.000Z'
+      const checkIn = new Date(checkInTime);
+
+      // Extract time from endTime
+      const endTime = new Date(endTimeStr);
+
+      // Create a new date using check-in date + endTime hours/minutes
+      const endDateTime = new Date(checkIn);
+      endDateTime.setUTCHours(
+        endTime.getUTCHours(),
+        endTime.getUTCMinutes(),
+        endTime.getUTCSeconds(),
+        0,
+      );
+
+      // Calculate difference in milliseconds
+      const diffMs = endDateTime.getTime() - checkIn.getTime();
+
+      // Convert to hours (decimal)
+      const workingHours = diffMs / (1000 * 60 * 60);
+
       attendanceId = uuidv4();
       const attendance = {
         id: attendanceId,
@@ -103,6 +124,13 @@ export class AttendanceService {
         officeTimingId: officeTiming.id,
         status: 'PRESENT',
         expiresAt: this.getTTLInSeconds(2).toString(),
+        workingHours: workingHours,
+        lateHours: 0,
+        earlyLeave: 0,
+        overtimeHours: 0,
+        createdAt: new Date().toISOString(),
+        checkOut: null,
+        note : null,
       };
 
       await dynamoClient.send(
@@ -270,7 +298,8 @@ export class AttendanceService {
                 lateHours = :lh,
                 earlyLeave = :el,
                 overtimeHours = :ot,
-                #status = :st
+                #status = :st,
+                updatedAt = :ua
           `,
           ExpressionAttributeNames: {
             '#status': 'status', // 🔥 required
@@ -282,6 +311,7 @@ export class AttendanceService {
             ':el': round(earlyLeave),
             ':ot': round(overtimeHours),
             ':st': status,
+            ':ua': new Date().toISOString(),
           },
         }),
       );
