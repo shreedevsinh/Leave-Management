@@ -212,14 +212,14 @@ This project uses a deployment script for automated infrastructure and applicati
 
 ```bash
 ./scripts/deploy.sh
-./scripts/deploy-server.sh
-./scripts/deploy-client.sh
 ```
 
 ### Make Script Executable (First Time Only)
 
 ```bash
 chmod +x ./scripts/deploy.sh
+chmod +x ./scripts/deploy-server.sh
+chmod +x ./scripts/deploy-client.sh
 ```
 
 This script will:
