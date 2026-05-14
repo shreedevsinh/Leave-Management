@@ -10,7 +10,6 @@ provider:
   memorySize: 1024
 
   environment:
-    JWT_SECRET: dhbrW6d4J6JsEBeNgeJm16xduZOdWd1bMSoF28FzQqy
     NODE_ENV: production
     FRONTEND_URL: ${env:FRONTEND_URL}, 'http://localhost:5173'
 
@@ -72,6 +71,13 @@ provider:
         - logs:PutLogEvents
       Resource: '*'
 
+    # SECRETS MANAGER
+    - Effect: Allow
+      Action:
+        - secretsmanager:GetSecretValue
+      Resource:
+        - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:leave-management/production-new*
+
 functions:
   ${file(../infrastructure/api/functions.yml)}
 
@@ -117,6 +123,7 @@ resources:
   # - ${file(../infrastructure/dynamodb/tables.yml)}
   - ${file(../infrastructure/s3/frontend-bucket.yml)}
   - ${file(../infrastructure/s3/cloudfront.yml)}
+  - ${file(../infrastructure/secrets/secrets.yml)}
 
   # - Outputs:
   #     HttpApiUrl:

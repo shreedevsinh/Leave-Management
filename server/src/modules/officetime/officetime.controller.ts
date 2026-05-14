@@ -1,7 +1,9 @@
 import { Body, Get, Controller, Param, Put, Post, Req, UseGuards } from '@nestjs/common';
 import { OfficetimeService } from './officetime.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('officetime')
+@UseGuards(AuthGuard('jwt'))
 export class OfficetimeController {
   constructor(private readonly officetimeService: OfficetimeService) {}
 

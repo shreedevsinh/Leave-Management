@@ -6,24 +6,72 @@ import { UsersService } from '../users/users.service';
 import { DynamoModule } from '../../dynamo/dynamo.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from '../../common/guards/jwt.strategy';
+import { getSecret } from '../../common/utils/secrets';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      // ✅ IMPORTANT
       isGlobal: true,
     }),
+
     DynamoModule,
+
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '7d' },
-      }),
+
+      useFactory: async (
+        config: ConfigService,
+      ) => {
+        let jwtSecret: string | undefined;
+        let jwtExpiresIn: string | undefined;
+
+        try {
+          const secretJson = await getSecret(
+            'leave-management/production-new',
+          );
+
+          const secret = JSON.parse(secretJson);
+
+          jwtSecret = secret.JWT_SECRET;
+          jwtExpiresIn =
+            secret.JWT_EXPIRES_IN;
+        } catch {
+          jwtSecret =
+            config.get<string>('JWT_SECRET');
+
+          jwtExpiresIn =
+            config.get<string>(
+              'JWT_EXPIRES_IN',
+            ) || '7d';
+        }
+
+        if (!jwtSecret) {
+          throw new Error(
+            'JWT_SECRET is missing',
+          );
+        }
+
+        console.log(
+          'JWT Loaded:',
+          !!jwtSecret,
+        );
+
+        return {
+          secret: jwtSecret,
+
+          signOptions: {
+            expiresIn: (jwtExpiresIn || '7d') as any,
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, JwtStrategy],
+  providers: [
+    AuthService,
+    UsersService,
+    JwtStrategy,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

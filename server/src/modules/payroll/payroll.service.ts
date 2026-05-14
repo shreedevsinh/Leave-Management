@@ -658,7 +658,6 @@ export class PayrollService {
       const { userId, date, checkIn, checkOut, status } = data;
 
       if (status === "leave" || status === "absent") {
-        console.log("Deleting attendance for leave/absent day");
 
         const result = await client.send(
           new QueryCommand({
@@ -743,9 +742,6 @@ export class PayrollService {
       }
 
       const checkInDate = parseDateTime(date, checkIn);
-      console.log("date ==> ", date);
-      console.log("checkIn ==> ", checkIn);
-      console.log("checkInDate ==> ", checkInDate);
 
       const checkOutDate = parseDateTime(date, checkOut);
 
@@ -756,13 +752,10 @@ export class PayrollService {
       }
 
       const startTimeRaw = new Date( officeTiming.startTime );
-      console.log("startTimeRaw ==> ", startTimeRaw);
 
       const endTimeRaw = new Date( officeTiming.endTime );
 
       const officeStart = new Date(checkInDate);
-      console.log("checkInDate ==> ", checkInDate);
-      console.log("officeStart ==> ", officeStart);
 
       officeStart.setHours( startTimeRaw.getUTCHours(), startTimeRaw.getUTCMinutes(), 0, 0 );
 
@@ -802,16 +795,6 @@ export class PayrollService {
         updatedStatus = "PRESENT";
       }
 
-      const checkInTime = checkInDate.toTimeString();
-      console.log("checkInTime ==> ", checkInTime);
-      const newcheckInTime = convertToUTC( date, checkIn );
-      console.log("newcheckInTime ==> ", newcheckInTime);
-
-      const checkOutTime = checkOutDate.toTimeString();
-      console.log("checkOutTime ==> ", checkOutTime);
-      const newcheckOutTime = convertToUTC( date, checkOut );
-      console.log("newcheckOutTime ==> ", newcheckOutTime);
-
       // Check existing attendance
       const existingAttendanceResult =
         await client.send(
@@ -834,12 +817,12 @@ export class PayrollService {
 
       const existingAttendance =
         existingAttendanceResult
-          .Items?.[0];
+        .Items?.[0];
 
       const attendancePayload =
       {
-        checkIn: newcheckInTime,
-        checkOut: newcheckOutTime,
+        checkIn: convertToUTC( date, checkIn ),
+        checkOut: convertToUTC( date, checkOut ),
         updatedAt: new Date().toISOString(),
         officeTimingId: officeTiming.id,
         workingHours: round( actualWorkedHours ),

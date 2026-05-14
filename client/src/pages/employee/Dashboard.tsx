@@ -227,41 +227,72 @@ export default function EmployeeDashboard() {
 
   // 
   const handleAttendance = async () => {
-    try {
-      const url = isCheckedIn
-        ? `${API_URL}/attendance/check-out`
-        : `${API_URL}/attendance/check-in`;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const url = isCheckedIn
+            ? `${API_URL}/attendance/check-out`
+            : `${API_URL}/attendance/check-in`;
 
-      const body = JSON.stringify({
-        [isCheckedIn ? "checkOutTime" : "checkInTime"]: new Date().toISOString(),
-        userId: userId,
-      });
+          const body = JSON.stringify({
+            [isCheckedIn ? "checkOutTime" : "checkInTime"]:
+              new Date().toISOString(),
 
-      const res = await fetch(url, {
-        method: isCheckedIn ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body,
-      });
+            userId,
 
-      if (!res.ok) throw new Error("Attendance action failed");
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
 
-      setToast({
-        message: isCheckedIn
-          ? "Checked Out successfully"
-          : "Checked In successfully",
-        type: "success",
-      });
-      checkAttendanceStatus();
-    } catch (error: any) {
-      console.error(error);
-      setToast({
-        message: error.message,
-        type: "error",
-      });
-    }
+          const res = await fetch(url, {
+            method: isCheckedIn ? "PUT" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body,
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(
+              data.message || "Attendance action failed"
+            );
+          }
+
+          setToast({
+            message: isCheckedIn
+              ? "Checked Out successfully"
+              : "Checked In successfully",
+            type: "success",
+          });
+          checkAttendanceStatus();
+        } catch (error: any) {
+          console.error(error);
+          setToast({
+            message: error.message,
+            type: "error",
+          });
+        }
+      },
+
+      (error) => {
+        setToast({
+          message:
+            "Location permission is required for attendance",
+          type: "error",
+        });
+
+        console.error(error);
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   const checkAttendanceStatus = async () => {
@@ -416,41 +447,62 @@ export default function EmployeeDashboard() {
                 </thead>
 
                 <tbody>
-                  {requests.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-white/5 hover:bg-white/5 transition"
-                    >
-                      <td className="text-white py-3">{r.type}</td>
-                      <td className="text-gray-300">{r.days}</td>
+                  {requests.length > 0 ? (
+                    requests.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b border-white/5 hover:bg-white/5 transition"
+                      >
+                        <td className="text-white py-3">{r.type}</td>
+                        <td className="text-gray-300">{r.days}</td>
 
-                      <td>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs flex items-center gap-2 w-fit
-                          ${r.status === "Approved"
-                              ? "text-green-400 bg-green-400/20"
-                              : r.status === "Rejected"
-                                ? "text-red-400 bg-red-400/20"
-                                : "text-yellow-400 bg-yellow-400/20"
-                            }`}
-                        >
+                        <td>
                           <span
-                            className={`w-2 h-2 rounded-full
-                            ${r.status === "Approved"
-                                ? "bg-green-400"
+                            className={`px-3 py-1 rounded-full text-xs flex items-center gap-2 w-fit
+            ${r.status === "Approved"
+                                ? "text-green-400 bg-green-400/20"
                                 : r.status === "Rejected"
-                                  ? "bg-red-400"
-                                  : "bg-yellow-400"
+                                  ? "text-red-400 bg-red-400/20"
+                                  : "text-yellow-400 bg-yellow-400/20"
                               }`}
-                          />
-                          {r.status}
-                        </span>
-                      </td>
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full
+              ${r.status === "Approved"
+                                  ? "bg-green-400"
+                                  : r.status === "Rejected"
+                                    ? "bg-red-400"
+                                    : "bg-yellow-400"
+                                }`}
+                            />
+                            {r.status}
+                          </span>
+                        </td>
 
-                      <td className="text-gray-300">{r.startDate}</td>
-                      <td className="text-gray-300">{r.endDate}</td>
+                        <td className="text-gray-300">{r.startDate}</td>
+                        <td className="text-gray-300">{r.endDate}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-16 text-center">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center text-2xl">
+                            📄
+                          </div>
+
+                          <h3 className="text-white font-medium text-lg">
+                            No Leave Requests
+                          </h3>
+
+                          <p className="text-gray-400 text-sm max-w-sm">
+                            You haven’t submitted any leave requests yet.
+                            Once created, they’ll appear here.
+                          </p>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

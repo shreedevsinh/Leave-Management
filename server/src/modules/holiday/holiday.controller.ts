@@ -7,7 +7,8 @@ import {
   UseInterceptors,
   UploadedFile,
   Delete,
-  Param
+  Param,
+  UseGuards
 } from '@nestjs/common';
 
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -15,7 +16,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { HolidayService } from './holiday.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 
+import { AuthGuard } from '@nestjs/passport';
+
+
 @Controller('holidays')
+@UseGuards(AuthGuard('jwt'))
 export class HolidayController {
   constructor(private readonly holidayService: HolidayService) {}
 

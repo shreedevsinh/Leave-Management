@@ -507,8 +507,6 @@ export class UsersService {
 
   async deleteEmployee(id: string): Promise<boolean> {
     try {
-      // await this.prisma.user.delete({ where: { id: String(id) } });
-
       await this.dynamo.getClient().send(
         new DeleteCommand({
           TableName: 'Users',

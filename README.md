@@ -107,9 +107,6 @@ leave-management/
 │   │   │   ├── holidays.lambda.ts
 │   │   │   └── payroll.lambda.ts
 │   │   │
-│   │   ├── prisma/                  # Prisma schema
-│   │   │   └── schema.prisma
-│   │   │
 │   │   ├── app.module.ts
 │   │   ├── app.controller.ts
 │   │   ├── app.service.ts
