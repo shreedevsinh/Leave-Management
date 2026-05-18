@@ -14,6 +14,8 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
+import { getTTLInSeconds } from '../../common/utils/ttl.util';
+
 
 @Injectable()
 export class HolidayService {
@@ -34,9 +36,7 @@ export class HolidayService {
       createdAt: new Date().toISOString(),
 
       // TTL MUST be Unix timestamp in seconds
-      expiresAt: Math.floor(
-        (Date.now() + 365 * 24 * 60 * 60 * 1000 * 2) / 1000,
-      ),
+      expiresAt: getTTLInSeconds(2).toString(),
     };
 
     const result = await dynamoClient.send(
@@ -119,10 +119,7 @@ export class HolidayService {
           holiday.isOptional === true || holiday.isOptional === 'true',
 
         createdAt: new Date().toISOString(),
-
-        expiresAt: Math.floor(
-          (Date.now() + 365 * 24 * 60 * 60 * 1000 * 2) / 1000,
-        ),
+        expiresAt: getTTLInSeconds(2).toString(),
       };
 
       await dynamoClient.send(

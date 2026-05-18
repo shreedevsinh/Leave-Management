@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DynamoService } from '../../dynamo/dynamo.service';
-import { PayrollService } from '../payroll/payroll.service';
+import { OfficetimeService } from '../../modules/officetime/officetime.service';
 import {
   PutCommand,
   GetCommand,
@@ -14,33 +14,23 @@ import {
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import { stat } from 'fs';
+import { getTTLInSeconds } from '../../common/utils/ttl.util';
+import { getTodayIST } from '../../common/utils/date.util';
+import { round } from '../../common/utils/util';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     private dynamo: DynamoService,
-    private payrollService: PayrollService,
+    private officetimeService: OfficetimeService,
   ) {}
-
-  private getTTLInSeconds(years = 2) {
-    const now = Math.floor(Date.now() / 1000);
-    const secondsInYear = 365 * 24 * 60 * 60;
-
-    return now + years * secondsInYear;
-  }
 
   // --------------------------
   // ✅ Check In
   // --------------------------
   async checkIn(body: { userId: string; checkInTime?: Date }) {
     const dynamoClient = this.dynamo.getClient();
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
+    const today = getTodayIST();
 
     const checkInTime = body.checkInTime
       ? new Date(body.checkInTime)
@@ -53,9 +43,6 @@ export class AttendanceService {
     }
 
     try {
-      // --------------------------
-      // 1️⃣ Check if already checked in
-      // --------------------------
       const existingResult = await dynamoClient.send(
         new QueryCommand({
           TableName: 'Attendance',
@@ -81,18 +68,7 @@ export class AttendanceService {
         return { ...existingResult.Items?.[0], checkOut: null };
       }
 
-      const officeTimingResult = await dynamoClient.send(
-        new ScanCommand({
-          TableName: 'OfficeTiming',
-          FilterExpression: 'isActive = :true',
-          ExpressionAttributeValues: { ':true': true },
-        }),
-      );
-
-      if (!officeTimingResult.Items || officeTimingResult.Items.length === 0)
-        throw new NotFoundException('Active office timing not found');
-
-      const officeTiming = officeTimingResult.Items[0];
+      const officeTiming = await this.officetimeService.getActiveOfficeTiming();
 
       const endTimeStr = officeTiming.endTime; // '1970-01-01T14:15:00.000Z'
       const checkIn = new Date(checkInTime);
@@ -123,12 +99,13 @@ export class AttendanceService {
         checkIn: checkInTime.toISOString(),
         officeTimingId: officeTiming.id,
         status: 'PRESENT',
-        expiresAt: this.getTTLInSeconds(2).toString(),
-        workingHours: workingHours,
+        expiresAt: getTTLInSeconds(2).toString(),
+        workingHours: round(workingHours),
         lateHours: 0,
         earlyLeave: 0,
         overtimeHours: 0,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         checkOut: null,
         note : null,
       };
@@ -170,12 +147,7 @@ export class AttendanceService {
   // --------------------------
   async checkOut(body: { userId: string; checkOutTime?: Date }) {
     const dynamoClient = this.dynamo.getClient();
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
+    const today = getTodayIST();
 
     const checkOutTime = body.checkOutTime
       ? new Date(body.checkOutTime)
@@ -207,18 +179,7 @@ export class AttendanceService {
       const checkIn = new Date(attendance.checkIn);
       const checkOut = checkOutTime;
 
-      // 2️⃣ Fetch office timing
-      const officeTimingResult = await dynamoClient.send(
-        new GetCommand({
-          TableName: 'OfficeTiming',
-          Key: { id: attendance.officeTimingId },
-        }),
-      );
-
-      if (!officeTimingResult.Item)
-        throw new NotFoundException('Office timing not found');
-
-      const officeTiming = officeTimingResult.Item;
+      const officeTiming = await this.officetimeService.getActiveOfficeTiming();
 
       const startTimeRaw = new Date(officeTiming.startTime);
       const endTimeRaw = new Date(officeTiming.endTime);
@@ -273,7 +234,6 @@ export class AttendanceService {
       const overtimeHours = Math.max(0, actualWorkedHours - officeHours);
 
       // Optional: round values (clean output)
-      const round = (val: number) => Math.round(val * 100) / 100;
 
       let status: 'PRESENT' | 'HALF_DAY' | 'ABSENT';
 
@@ -351,14 +311,7 @@ export class AttendanceService {
 
   async getTodaysAttendance(userId: string) {
     const client = this.dynamo.getClient();
-
-    // ✅ Get today's date in IST (simple)
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
+    const today = getTodayIST();
 
     const existingResult = await client.send(
       new ScanCommand({

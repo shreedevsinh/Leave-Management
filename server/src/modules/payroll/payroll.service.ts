@@ -9,16 +9,16 @@ import {
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import { getTTLInSeconds } from '../../common/utils/ttl.util';
+import { round } from '../../common/utils/util';
+import { AttendanceService } from '../../modules/attendance/attendance.service';
 
 @Injectable()
 export class PayrollService {
-  constructor(private dynamo: DynamoService) { }
-
-  private getTTLInSeconds(years = 2) {
-    const now = Math.floor(Date.now() / 1000);
-    const secondsInYear = 365 * 24 * 60 * 60;
-
-    return now + years * secondsInYear;
+  constructor(
+    private dynamo: DynamoService,
+    private attendanceService: AttendanceService
+  ) { 
   }
 
   async getMonthlyPayroll(
@@ -132,7 +132,7 @@ export class PayrollService {
 
     const payroll = await Promise.all(
       users.map(async (user) => {
-        const attendance = await this.getMonthlyAttendance(
+        const attendance = await this.attendanceService.getMonthlyAttendance(
           user.id,
           month,
           year,
@@ -152,7 +152,7 @@ export class PayrollService {
           ...salaryData,
           totalDays,
           createdAt: new Date().toISOString(),
-          expiresAt: this.getTTLInSeconds(2).toString(),
+          expiresAt: getTTLInSeconds(2).toString(),
         };
 
         const existingPayroll = await this.getPayroll(
@@ -237,33 +237,6 @@ export class PayrollService {
         ExpressionAttributeValues: {
           ':isActive': true,
           ':role': 'EMPLOYEE',
-        },
-      }),
-    );
-
-    return res.Items || [];
-  }
-
-  async getMonthlyAttendance(userId: string, month: number, year: number) {
-    const client = this.dynamo.getClient();
-
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
-
-    const res = await client.send(
-      new QueryCommand({
-        TableName: 'Attendance',
-        IndexName: 'userId-date-index',
-        KeyConditionExpression:
-          '#userId = :userId AND #date BETWEEN :start AND :end',
-        ExpressionAttributeNames: {
-          '#userId': 'userId',
-          '#date': 'date',
-        },
-        ExpressionAttributeValues: {
-          ':userId': userId,
-          ':start': startDate,
-          ':end': endDate,
         },
       }),
     );
@@ -480,10 +453,8 @@ export class PayrollService {
       // Rule:
       // - count Mon–Fri
       // - subtract holiday only if NOT weekend
-      if (!isWeekend) {
-        if (!isHoliday) {
-          workingDays++;
-        }
+      if (!isWeekend && !isHoliday) {
+        workingDays++;
       }
     }
 
@@ -523,31 +494,14 @@ export class PayrollService {
       const end = endDate.toISOString().split('T')[0];
 
       // ✅ CORRECT QUERY (NO { S: })
-      const res = await client.send(
-        new QueryCommand({
-          TableName: 'Attendance',
-          IndexName: 'userId-date-index',
-
-          KeyConditionExpression: 'userId = :u AND #dt BETWEEN :start AND :end',
-
-          ExpressionAttributeNames: {
-            '#dt': 'date',
-            '#st': 'status',
-          },
-
-          ExpressionAttributeValues: {
-            ':u': cleanUserId,
-            ':start': start,
-            ':end': end,
-          },
-
-          ProjectionExpression:
-            'userId, #dt, checkIn, checkOut, workingHours, #st',
-        }),
-      );
+      const res = await this.attendanceService.getMonthlyAttendance(
+        cleanUserId,
+        month,
+        year,
+      )
 
       // ✅ DocumentClient already unmarshalls → REMOVE unmarshall()
-      const records = res.Items || [];
+      const records = res || [];
 
       // ✅ Map for fast lookup
       const recordMap = new Map<string, any>();
@@ -715,9 +669,6 @@ export class PayrollService {
         time
           ? parseDateTime( date, time )?.toISOString()
           : null;
-
-      const round = (val: number) =>
-        Math.round(val * 100) / 100;
 
       // Get active office timing
       const officeTimingResult =

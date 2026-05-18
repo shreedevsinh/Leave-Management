@@ -15,6 +15,31 @@ export class OfficetimeService {
 
   constructor(private dynamo: DynamoService) {}
 
+  private async deactivateAll(client: any) {
+    const result = await client.send(
+      new ScanCommand({ TableName: this.tableName }),
+    );
+
+    const items = result.Items || [];
+
+    await Promise.all(
+      items.map((item) =>
+        client.send(
+          new UpdateCommand({
+            TableName: this.tableName,
+            Key: { id: item.id },
+            UpdateExpression: 'SET isActive = :false',
+            ExpressionAttributeValues: {
+              ':false': false,
+            },
+          }),
+        ),
+      ),
+    );
+
+    return items;
+  }
+
   // ✅ Create Office Timing
   async create(data: {
     startTime: string;
@@ -34,47 +59,20 @@ export class OfficetimeService {
       createdAt: new Date().toISOString(),
     };
 
-    let originalDynamoItems: any[] = [];
+    try {
+      await this.deactivateAll(client);
 
-    const deactivateDynamoItems = async () => {
-      const scanResult = await client.send(
-        new ScanCommand({ TableName: this.tableName }),
-      );
-      const items = scanResult.Items || [];
-      originalDynamoItems = [...items];
-
-      await Promise.all(
-        items.map((item) =>
-          client.send(
-            new UpdateCommand({
-              TableName: this.tableName,
-              Key: { id: item.id },
-              UpdateExpression: 'SET isActive = :false',
-              ExpressionAttributeValues: { ':false': false },
-            }),
-          ),
-        ),
-      );
-    };
-
-    const createDynamoItem = async () => {
       await client.send(
         new PutCommand({
           TableName: this.tableName,
           Item: newItem,
         }),
       );
-    };
 
-    try {
-      await deactivateDynamoItems();
-      await createDynamoItem();
       return newItem;
     } catch (error) {
       console.error('❌ Error creating office timing:', error);
-      throw new Error(
-        'Failed to create office timing. All changes rolled back.',
-      );
+      throw new Error('Failed to create office timing.');
     }
   }
 
@@ -117,23 +115,7 @@ export class OfficetimeService {
   async setActive(id: string) {
     const client = this.dynamo.getClient();
 
-    const result = await client.send(
-      new ScanCommand({ TableName: this.tableName }),
-    );
-    const items = result.Items || [];
-
-    await Promise.all(
-      items.map((item) =>
-        client.send(
-          new UpdateCommand({
-            TableName: this.tableName,
-            Key: { id: item.id },
-            UpdateExpression: 'SET isActive = :false',
-            ExpressionAttributeValues: { ':false': false },
-          }),
-        ),
-      ),
-    );
+    await this.deactivateAll(client);
 
     await client.send(
       new UpdateCommand({

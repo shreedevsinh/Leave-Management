@@ -51,11 +51,6 @@ import { getSecret } from '../../common/utils/secrets';
           );
         }
 
-        console.log(
-          'JWT Loaded:',
-          !!jwtSecret,
-        );
-
         return {
           secret: jwtSecret,
 

@@ -17,6 +17,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateLeaveDto } from './dto/create-leave.dto';
+import { getTTLInSeconds } from '../../common/utils/ttl.util';
 
 @Injectable()
 export class LeavesService {
@@ -33,13 +34,6 @@ export class LeavesService {
     const diff = e.getTime() - s.getTime();
 
     return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
-  }
-
-  private getTTLInSeconds(years = 2) {
-    const now = Math.floor(Date.now() / 1000);
-    const secondsInYear = 365 * 24 * 60 * 60;
-
-    return now + years * secondsInYear;
   }
 
   // ✅ Split leave by year
@@ -119,7 +113,7 @@ export class LeavesService {
         total: type.maxPerYear,
         used: 0,
         remaining: type.maxPerYear,
-        expiresAt: this.getTTLInSeconds(2).toString(),
+        expiresAt: getTTLInSeconds(2).toString(),
       };
 
       await dynamoClient.send(
@@ -231,7 +225,7 @@ export class LeavesService {
             status: 'PENDING',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            expiresAt: this.getTTLInSeconds(2).toString(),
+            expiresAt: getTTLInSeconds(2).toString(),
           };
 
           await dynamoClient.send(
@@ -251,7 +245,6 @@ export class LeavesService {
         for (const leave of createdLeaves) {
           await this.updateLeaveStatus(leave.id, {
             status: 'APPROVED',
-            approvedBy: userId,
           });
         }
       }
@@ -787,7 +780,7 @@ export class LeavesService {
                   officeTimingId: officeTime.Items?.[0]?.id,
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
-                  expiresAt: this.getTTLInSeconds(2).toString(),
+                  expiresAt: getTTLInSeconds(2).toString(),
                 },
               }),
             );
@@ -808,12 +801,7 @@ export class LeavesService {
         }
       }
 
-      // ====================================
-      // 4. SYNC RDS
-      // ====================================
-      let updatedLeave;
-
-      return updatedLeave;
+      return { message: 'Leave status updated successfully' };
     } catch (error) {
       console.error('🔥 GLOBAL ERROR:', error);
 
