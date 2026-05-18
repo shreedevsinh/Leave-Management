@@ -12,20 +12,39 @@ import {
   GetCommand,
   ScanCommand,
   UpdateCommand,
+  QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { getTTLInSeconds } from '../../common/utils/ttl.util';
+
 
 @Injectable()
 export class UsersService {
   constructor(private dynamo: DynamoService) {}
 
-  private getTTLInSeconds(years = 2) {
-    const now = Math.floor(Date.now() / 1000);
-    const secondsInYear = 365 * 24 * 60 * 60;
+  private async createSalary(
+    userId: string,
+    newSalary: number,
+    newSalaryId: string,
+  ): Promise<void> {
+    const client = this.dynamo.getClient();
 
-    return now + years * secondsInYear;
+    const newItem = {
+      id: newSalaryId,
+      userId,
+      baseSalary: newSalary,
+      createdAt: new Date().toISOString(),
+      isActive: true,
+    };
+
+    await client.send(
+      new PutCommand({
+        TableName: 'Salaries',
+        Item: newItem,
+      }),
+    );
   }
 
   async createUser(data: CreateUserDto) {
@@ -70,18 +89,12 @@ export class UsersService {
         }),
       );
 
-      await this.dynamo.getClient().send(
-        new PutCommand({
-          TableName: 'Salaries',
-          Item: {
-            id: salaryId,
-            userId,
-            baseSalary: data.salary,
-            createdAt: now,
-            isActive: true,
-          },
-        }),
+      await this.createSalary(
+        userId,
+        data.salary || 0,
+        salaryId,
       );
+
 
       const leaveTypesRes = await this.dynamo
         .getClient()
@@ -99,7 +112,7 @@ export class UsersService {
           used: 0,
           remaining: type.maxPerYear,
           year: new Date().getFullYear(),
-          expiresAt: this.getTTLInSeconds(2).toString(),
+          expiresAt: getTTLInSeconds(2).toString(),
         };
       });
 
@@ -250,19 +263,10 @@ export class UsersService {
       }
 
       // ➕ Always create new salary
-      const newItem = {
-        id: newSalaryId,
+      const newItem = await this.createSalary(
         userId,
-        baseSalary: newSalary,
-        createdAt: new Date().toISOString(),
-        isActive: true,
-      };
-
-      await client.send(
-        new PutCommand({
-          TableName: 'Salaries',
-          Item: newItem,
-        }),
+        newSalary,
+        newSalaryId,
       );
 
       await client.send(
@@ -433,41 +437,7 @@ export class UsersService {
         }),
       );
 
-      // 💰 Get active salaries
-      const salaryRes = await client.send(
-        new ScanCommand({
-          TableName: 'Salaries',
-          FilterExpression: 'isActive = :isActive',
-          ExpressionAttributeValues: {
-            ':isActive': true,
-          },
-        }),
-      );
-
-      // 🧠 Create salary map (userId → salary)
-      const salaryMap = new Map<string, any>();
-
-      (salaryRes.Items || []).forEach((s: any) => {
-        salaryMap.set(s.userId, s);
-      });
-
-      // 🔗 Merge
-      return (usersRes.Items || []).map((u: any) => {
-        const salary = salaryMap.get(u.id);
-
-        return {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          mobile: u.mobile,
-          role: u.role,
-          isActive: u.isActive,
-          isHourly: u.isHourly,
-          devices: u.devices,
-          joinDate: u.joinDate,
-          salary: u.salary || salary?.baseSalary || 0, // ✅ direct salary or fallback to active salary table
-        };
-      });
+      return usersRes.Items || [];
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException('Failed to get employees');
@@ -506,21 +476,82 @@ export class UsersService {
   }
 
   async deleteEmployee(id: string): Promise<boolean> {
-    try {
-      // await this.prisma.user.delete({ where: { id: String(id) } });
+  const client = this.dynamo.getClient();
 
-      await this.dynamo.getClient().send(
-        new DeleteCommand({
-          TableName: 'Users',
-          Key: { id },
+  const tables = [
+    {
+      tableName: 'Leaves',
+      keyFields: ['id'],
+    },
+    {
+      tableName: 'LeaveBalances',
+      keyFields: ['id'],
+    },
+    {
+      tableName: 'Attendance',
+      keyFields: ['id'],
+    },
+    {
+      tableName: 'Payrolls',
+      keyFields: ['id'],
+    },
+    {
+      tableName: 'Salaries',
+      keyFields: ['id'],
+    },
+  ];
+
+  try {
+    for (const table of tables) {
+
+      // Scan by userId
+      const result = await client.send(
+        new ScanCommand({
+          TableName: table.tableName,
+          FilterExpression: 'userId = :userId',
+          ExpressionAttributeValues: {
+            ':userId': id,
+          },
         }),
       );
 
-      return true;
-    } catch {
-      throw new InternalServerErrorException('Failed to delete employee');
+      if (result.Items?.length) {
+        await Promise.all(
+          result.Items.map((item) => {
+            const key = {};
+
+            table.keyFields.forEach((field) => {
+              key[field] = item[field];
+            });
+
+            return client.send(
+              new DeleteCommand({
+                TableName: table.tableName,
+                Key: key,
+              }),
+            );
+          }),
+        );
+      }
     }
+
+    // Delete user
+    await client.send(
+      new DeleteCommand({
+        TableName: 'Users',
+        Key: { id },
+      }),
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Delete employee failed:', error);
+
+    throw new InternalServerErrorException(
+      'Failed to delete employee',
+    );
   }
+}
 
   async updateDevices(id: string, devices: string[]) {
     try {

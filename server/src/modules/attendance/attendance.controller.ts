@@ -11,7 +11,7 @@ import {
 import { AttendanceService } from './attendance.service';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import type { Request } from 'express';
+import { validateOfficeLocation } from '../../common/utils/location-check';
 
 @Controller('attendance')
 @UseGuards(AuthGuard('jwt'))
@@ -20,38 +20,30 @@ export class AttendanceController {
 
   @Post('check-in')
   async checkIn(
-    @Body() body: { userId: string; checkInTime?: Date },
-    @Req() req: Request,
+    @Body()
+    body: {
+      userId: string;
+      lat: number;
+      lng: number;
+    },
   ) {
-    const clientIp = req.ip || (req.socket as any)?.remoteAddress;
-    const OFFICE_IP = process.env.OFFICE_IP;
-    // const SKIP_IP_CHECK = process.env.SKIP_IP_CHECK === 'true'; // Dev flag
-
-    // if (!SKIP_IP_CHECK && clientIp !== OFFICE_IP) {
-    if (clientIp !== OFFICE_IP) {
-      throw new BadRequestException(
-        `Check-in only allowed from office. Your IP: ${clientIp}`,
-      );
-    }
+    await validateOfficeLocation(
+      body.lat,
+      body.lng,
+    );
 
     return this.attendanceService.checkIn(body);
   }
 
   @Put('check-out')
   async checkOut(
-    @Body() body: { userId: string; checkOutTime: Date },
-    @Req() req: Request,
+    @Body() body: { userId: string; checkOutTime: Date; lat: number; lng: number },
   ) {
-    const clientIp = req.ip || (req.socket as any)?.remoteAddress;
-    const OFFICE_IP = process.env.OFFICE_IP;
-    // const SKIP_IP_CHECK = process.env.SKIP_IP_CHECK === 'true'; // Dev flag
+    await validateOfficeLocation(
+      body.lat,
+      body.lng,
+    );
 
-    // if (!SKIP_IP_CHECK && clientIp !== OFFICE_IP) {
-    if (clientIp !== OFFICE_IP) {
-      throw new BadRequestException(
-        `Check-out only allowed from office. Your IP: ${clientIp}`,
-      );
-    }
     return this.attendanceService.checkOut(body);
   }
 

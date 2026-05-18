@@ -8,5 +8,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [DynamoModule, AuthModule],
   controllers: [OfficetimeController],
   providers: [OfficetimeService],
+  exports: [OfficetimeService],
 })
 export class OfficetimeModule {}

@@ -53,17 +53,6 @@ Thumbs.db
 *.tsbuildinfo
 
 # =========================
-# Prisma
-# =========================
-prisma/migrations/
-# (optional: keep migrations if you want version control)
-# !prisma/migrations/
-
-# Prisma generated client
-node_modules/.prisma/
-node_modules/@prisma/client/
-
-# =========================
 # NestJS
 # =========================
 dist/

@@ -3,7 +3,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PutCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, DeleteCommand, ScanCommand, QueryCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { CreateLeaveTypeDto } from '../leave-types/dto/create-leave-type.dto';
 import { DynamoService } from '../../dynamo/dynamo.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -95,8 +95,32 @@ export class LeaveTypesService {
   }
 
   async deleteLeaveType(id: string): Promise<boolean> {
+    const client = this.dynamo.getClient();
     try {
-      // await this.prisma.leaveType.delete({ where: { id: String(id) } });
+      const LeaveBalances = await client.send(
+        new QueryCommand({
+          TableName: 'LeaveBalances',
+          IndexName: 'leaveTypeId-index',
+          KeyConditionExpression: 'leaveTypeId = :id',
+          ExpressionAttributeValues: {
+            ':id': id,
+          },
+        }),
+      );
+
+      if (LeaveBalances.Items?.length) {
+        await client.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              LeaveBalances: LeaveBalances.Items.map((leave) => ({
+                DeleteRequest: {
+                  Key: { id: leave.id },
+                },
+              })),
+            },
+          }),
+        );
+      }
 
       await this.dynamo.getClient().send(
         new DeleteCommand({
