@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Resources:
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: leave-management-codebuild-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: leave-management-build
+
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+
+      Artifacts:
+        Type: CODEPIPELINE
+
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        Type: LINUX_CONTAINER
+
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: leave-management-pipeline-role
+
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+
+    Properties:
+      Name: leave-management-pipeline
+
+      RoleArn: !GetAtt PipelineRole.Arn
+
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+
+      Stages:
+
+        - Name: Source
+
+          Actions:
+            - Name: GitHubSource
+
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+
+              OutputArtifacts:
+                - Name: SourceOutput
+
+              Configuration:
+                ConnectionArn: arn:aws:codestar-connections:ap-south-1:179814331655:connection/072671b5-aa79-4674-84ca-882990132846
+                FullRepositoryId: pragneysh/Leave-Management
+                BranchName: aws-codepipeline
+
+              RunOrder: 1
+
+        - Name: Build
+
+          Actions:
+            - Name: BuildApp
+
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+
+              InputArtifacts:
+                - Name: SourceOutput
+
+              OutputArtifacts:
+                - Name: BuildOutput
+
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+
+              RunOrder: 1
