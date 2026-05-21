@@ -95,7 +95,6 @@ Resources:
               RunOrder: 1
 
         - Name: Build
-
           Actions:
             - Name: BuildApp
 
