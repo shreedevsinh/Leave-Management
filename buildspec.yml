@@ -4,8 +4,10 @@ phases:
   install:
     runtime-versions:
       nodejs: 20
+
     commands:
       - set -e
+      - echo "Installing global packages..."
       - npm install -g serverless@3 @nestjs/cli
 
   pre_build:
@@ -14,22 +16,10 @@ phases:
 
   build:
     commands:
-      - echo "Normalizing shell scripts..."
-
-      - sed -i 's/\r$//' scripts/*.sh
-
-      - chmod +x scripts/deploy.sh
-      - chmod +x scripts/deploy-server.sh
-      - chmod +x scripts/deploy-client.sh
-
-      - ulimit -n 65535 || true
-
-      - ls -la scripts
-      - file scripts/deploy.sh
-
-      - echo "Running deploy script..."
-      - bash scripts/deploy.sh
+      - echo "Build phase running..."
+      - pwd
+      - ls -la
 
   post_build:
     commands:
-      - echo "Build completed at $(date)"
+      - echo "Build completed successfully at $(date)"
