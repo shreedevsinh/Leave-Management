@@ -83,6 +83,7 @@ functions:
 
 package:
   individually: true
+  excludeDevDependencies: true
 
   patterns:
     - '!node_modules/**/test/**'
@@ -93,6 +94,10 @@ package:
     - '!node_modules/**/.github/**'
     - '!node_modules/**/docs/**'
     - '!node_modules/aws-sdk/**'
+
+    - '!client/**'
+    - '!scripts/**'
+    - '!infrastructure/**'
 
     - '!dist/**/*.map'
 
