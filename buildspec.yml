@@ -17,8 +17,21 @@ phases:
   build:
     commands:
       - echo "Build phase running..."
+
       - pwd
       - ls -la
+      - ls -la scripts
+
+      - echo "Normalizing shell scripts..."
+      - sed -i 's/\r$//' scripts/*.sh
+
+      - echo "Giving execute permissions..."
+      - chmod +x scripts/deploy.sh
+      - chmod +x scripts/deploy-server.sh
+      - chmod +x scripts/deploy-client.sh
+
+      - echo "Running deploy script..."
+      - bash scripts/deploy.sh
 
   post_build:
     commands:
