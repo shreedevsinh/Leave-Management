@@ -119,7 +119,7 @@ custom:
       - '@nestjs/websockets'
       - '@nestjs/microservices'
 
-resources:
+
 resources:
   # - ${file(../infrastructure/s3/cloudfront.yml)}
   - ${file(../infrastructure/secrets/secrets.yml)}
