@@ -30,7 +30,7 @@ FRONTEND_URL="http://localhost:5173"
 # Install dependencies
 # -------------------------------
 echo "📦 Installing dependencies..."
-npm install
+npm install --no-audit --no-fund
 
 # -------------------------------
 # Build NestJS project
@@ -50,6 +50,8 @@ npx serverless@3 --version
 # Deploy to AWS
 # -------------------------------
 echo "☁️ Deploying backend to AWS..."
+
+ulimit -n 65535 || true
 
 JWT_SECRET="$JWT_SECRET" \
 OFFICE_LAT="$OFFICE_LAT" \
