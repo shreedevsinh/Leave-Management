@@ -51,7 +51,6 @@ npx serverless@3 --version
 # -------------------------------
 echo "☁️ Deploying backend to AWS..."
 
-ulimit -n 65535 || true
 
 JWT_SECRET="$JWT_SECRET" \
 OFFICE_LAT="$OFFICE_LAT" \
