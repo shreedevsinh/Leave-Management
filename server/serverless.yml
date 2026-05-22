@@ -120,11 +120,11 @@ custom:
       - '@nestjs/microservices'
 
 resources:
-  - ${file(../infrastructure/s3/cloudfront.yml)}
+resources:
+  # - ${file(../infrastructure/s3/cloudfront.yml)}
   - ${file(../infrastructure/secrets/secrets.yml)}
   - ${file(../infrastructure/api/functions.yml)}
-  - ${file(../infrastructure/dynamodb/tables.yml)}
-
+  # - ${file(../infrastructure/dynamodb/tables.yml)}
   # - Outputs:
   #     HttpApiUrl:
   #       Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
