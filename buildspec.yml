@@ -4,18 +4,46 @@ phases:
   install:
     runtime-versions:
       nodejs: 20
-
     commands:
-      - chmod +x scripts/deploy.sh
+      - set -e
+      - npm install -g serverless@3 @nestjs/cli
+      - gpg --version
+
+  pre_build:
+    commands:
+      - echo "Starting decryption..."
+
+      - test -n "$GPG_KEY" || (echo "GPG_KEY is missing!" && exit 1)
+
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/api/functions.yml -d infrastructure/api/functions.yml.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/dynamodb/tables.yml -d infrastructure/dynamodb/tables.yml.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/s3/frontend-bucket.yml -d infrastructure/s3/frontend-bucket.yml.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/s3/cloudfront.yml -d infrastructure/s3/cloudfront.yml.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/secrets/secrets.yml -d infrastructure/secrets/secrets.yml.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o scripts/deploy.sh -d scripts/deploy.sh.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o scripts/deploy-server.sh -d scripts/deploy-server.sh.gpg
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o scripts/deploy-client.sh -d scripts/deploy-client.sh.gpg
+
+      - echo "Decryption complete"
 
   build:
     commands:
+      - echo "Normalizing shell scripts..."
+      - sed -i 's/\r$//' scripts/*.sh
 
-      - ./scripts/deploy.sh
+      - chmod +x scripts/deploy.sh
+      - chmod +x scripts/deploy-server.sh
+      - chmod +x scripts/deploy-client.sh
 
-artifacts:
-  files:
-    - '**/*'
+      - ulimit -n 65535 || true
 
+      - ls -la scripts
+      - file scripts/deploy.sh
 
+      - echo "Running deploy script..."
+      - bash scripts/deploy.sh
 
+  post_build:
+    commands:
+      - echo "Build completed at $(date)"
+      
