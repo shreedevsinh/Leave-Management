@@ -81,3 +81,9 @@ docker-compose.override.yml
 # =========================
 
 .serverless
+
+# Ignore decrypted infra files
+infrastructure/**/*.yml
+
+# Ignore script file
+scripts/**/*.sh
