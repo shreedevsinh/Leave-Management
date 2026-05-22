@@ -244,4 +244,3 @@ https://github.com/pragneyah
 # 📄 License
 
 MIT License
-test auto build
