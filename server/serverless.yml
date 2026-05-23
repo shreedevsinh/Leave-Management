@@ -104,13 +104,13 @@ package:
 custom:
   esbuild:
     bundle: true
-    minify: true
+    minify: false
     sourcemap: false
     target: node20
     platform: node
 
     # IMPORTANT FIXES
-    concurrency: 1
+    concurrency: 10
     zipConcurrency: 1
 
     keepNames: true
@@ -124,6 +124,8 @@ custom:
       - '@nestjs/websockets'
       - '@nestjs/microservices'
 
+plugins:
+  - serverless-esbuild
 
 resources:
   # - ${file(../infrastructure/s3/cloudfront.yml)}
