@@ -1,7 +1,5 @@
 service: leave-management-app
 
-# frameworkVersion: '3'
-
 provider:
   name: aws
   runtime: nodejs20.x
@@ -11,16 +9,18 @@ provider:
 
   environment:
     NODE_ENV: production
-    FRONTEND_URL: ${env:FRONTEND_URL}, 'http://localhost:5173'
+    FRONTEND_URL: ${env:FRONTEND_URL}
 
   httpApi:
     cors:
       allowedOrigins:
         - ${env:FRONTEND_URL}
         - http://localhost:5173
+
       allowedHeaders:
         - Content-Type
         - Authorization
+
       allowedMethods:
         - GET
         - POST
@@ -28,6 +28,7 @@ provider:
         - PATCH
         - DELETE
         - OPTIONS
+
       allowCredentials: true
       maxAge: 3600
 
@@ -42,96 +43,57 @@ provider:
         - dynamodb:DeleteItem
         - dynamodb:BatchGetItem
         - dynamodb:BatchWriteItem
+
       Resource:
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Users
-        - arn:aws:dynamodb:ap-south-1:*:table/Users/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Leaves
-        - arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances
-        - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Attendance
-        - arn:aws:dynamodb:ap-south-1:*:table/Attendance/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming
-        - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Payrolls
-        - arn:aws:dynamodb:ap-south-1:*:table/Payrolls/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Salaries
-        - arn:aws:dynamodb:ap-south-1:*:table/Salaries/index/*
-        - arn:aws:dynamodb:ap-south-1:*:table/Holiday
-        - arn:aws:dynamodb:ap-south-1:*:table/Holiday/index/*
+        - arn:aws:dynamodb:ap-south-1:*:table/*
 
     - Effect: Allow
       Action:
         - logs:CreateLogGroup
         - logs:CreateLogStream
         - logs:PutLogEvents
-      Resource: '*'
 
-    # SECRETS MANAGER
+      Resource: "*"
+
     - Effect: Allow
       Action:
         - secretsmanager:GetSecretValue
+
       Resource:
         - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:leave-management/production-new*
 
 functions:
   ${file(../infrastructure/api/functions.yml)}
 
-package:
-  individually: true
-  excludeDevDependencies: true
-
-  patterns:
-    - '!node_modules/**/test/**'
-    - '!node_modules/**/tests/**'
-    - '!node_modules/**/*.md'
-    - '!node_modules/**/*.map'
-    - '!node_modules/**/*.ts'
-    - '!node_modules/**/.github/**'
-    - '!node_modules/**/docs/**'
-    - '!node_modules/aws-sdk/**'
-
-    - '!client/**'
-    - '!scripts/**'
-    - '!infrastructure/**'
-
-    - '!dist/**/*.map'
+plugins:
+  - serverless-esbuild
 
 custom:
   esbuild:
     bundle: true
-    minify: false
+    minify: true
     sourcemap: false
     target: node20
     platform: node
 
-    # IMPORTANT FIXES
-    concurrency: 10
+    concurrency: 1
     zipConcurrency: 1
 
-    keepNames: true
-    packager: npm
-
-    external:
+    exclude:
       - aws-sdk
-      - '@prisma/client'
-      - sharp
-      - bcrypt
-      - '@nestjs/websockets'
-      - '@nestjs/microservices'
 
-plugins:
-  - serverless-esbuild
+package:
+  individually: true
+
+  patterns:
+    - '!node_modules/**'
+    - '!client/**'
+    - '!scripts/**'
+    - '!infrastructure/**'
+    - '!**/*.md'
+    - '!**/*.map'
+    - '!**/test/**'
+    - '!**/tests/**'
 
 resources:
-  # - ${file(../infrastructure/s3/cloudfront.yml)}
   - ${file(../infrastructure/secrets/secrets.yml)}
-  # - ${file(../infrastructure/api/functions.yml)}
-  # - ${file(../infrastructure/dynamodb/tables.yml)}
-  # - Outputs:
-  #     HttpApiUrl:
-  #       Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"

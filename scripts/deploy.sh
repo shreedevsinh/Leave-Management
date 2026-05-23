@@ -1,99 +1,104 @@
-service: leave-management-app
+#!/bin/bash
 
-provider:
-  name: aws
-  runtime: nodejs20.x
-  region: ap-south-1
-  timeout: 29
-  memorySize: 1024
+set -e
 
-  environment:
-    NODE_ENV: production
-    FRONTEND_URL: ${env:FRONTEND_URL}
+echo "🚀 Starting FULL Deployment..."
 
-  httpApi:
-    cors:
-      allowedOrigins:
-        - ${env:FRONTEND_URL}
-        - http://localhost:5173
+cd "$(dirname "$0")/.."
 
-      allowedHeaders:
-        - Content-Type
-        - Authorization
+STACK_NAME="leave-management-app-dev"
 
-      allowedMethods:
-        - GET
-        - POST
-        - PUT
-        - PATCH
-        - DELETE
-        - OPTIONS
+# -------------------------------
+# 0. Fetch CloudFront URL FIRST ✅
+# -------------------------------
+echo "🔍 Fetching existing CloudFront URL..."
 
-      allowCredentials: true
-      maxAge: 3600
+CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue" \
+  --output text 2>/dev/null || echo "")
 
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:GetItem
-        - dynamodb:Scan
-        - dynamodb:Query
-        - dynamodb:PutItem
-        - dynamodb:UpdateItem
-        - dynamodb:DeleteItem
-        - dynamodb:BatchGetItem
-        - dynamodb:BatchWriteItem
+if [ "$CLOUDFRONT_URL" != "None" ] && [ -n "$CLOUDFRONT_URL" ]; then
+  FRONTEND_URL=$CLOUDFRONT_URL
+  echo "✅ Using CloudFront URL: $CLOUDFRONT_URL"
+else
+  FRONTEND_URL=http://localhost:5173
+  echo "⚠️ Using fallback: localhost"
+fi
 
-      Resource:
-        - arn:aws:dynamodb:ap-south-1:*:table/*
+export FRONTEND_URL
 
-    - Effect: Allow
-      Action:
-        - logs:CreateLogGroup
-        - logs:CreateLogStream
-        - logs:PutLogEvents
+# -------------------------------
+# 1. Deploy Backend
+# -------------------------------
+echo "📦 Step 1: Deploying Backend..."
+./scripts/deploy-server.sh
 
-      Resource: "*"
+echo "🔍 Checking if stack exists..."
 
-    - Effect: Allow
-      Action:
-        - secretsmanager:GetSecretValue
+if ! aws cloudformation describe-stacks --stack-name $STACK_NAME > /dev/null 2>&1; then
+  echo "❌ ERROR: Stack does NOT exist. Backend deployment failed."
+  exit 1
+fi
 
-      Resource:
-        - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:leave-management/production-new*
+echo "✅ Backend Stack Verified"
 
-functions:
-  ${file(../infrastructure/api/functions.yml)}
+# -------------------------------
+# 2. Fetch API URL ✅ (MOVE HERE)
+# -------------------------------
+echo "🔗 Fetching Backend API URL..."
 
-plugins:
-  - serverless-esbuild
+API_URL=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" \
+  --output text)
 
-custom:
-  esbuild:
-    bundle: true
-    minify: true
-    sourcemap: false
-    target: node20
-    platform: node
+if [ "$API_URL" != "None" ] && [ -n "$API_URL" ]; then
+  export VITE_API_URL=$API_URL
+  echo "✅ API URL set: $API_URL"
+else
+  echo "❌ ERROR: API URL not found"
+  export VITE_API_URL = "http://localhost:3000"
+  exit 1
+fi
 
-    concurrency: 1
-    zipConcurrency: 1
+# -------------------------------
+# 3. Deploy Frontend ✅ NOW CORRECT
+# -------------------------------
+echo "⚛️ Step 2: Deploying Frontend..."
+./scripts/deploy-client.sh
 
-    exclude:
-      - aws-sdk
+echo "✅ Frontend Done"
 
-package:
-  individually: true
+# -------------------------------
+# 4. CloudFront Invalidation
+# -------------------------------
+echo "🌍 Step 3: Invalidating CloudFront Cache..."
 
-  patterns:
-    - '!node_modules/**'
-    - '!client/**'
-    - '!scripts/**'
-    - '!infrastructure/**'
-    - '!**/*.md'
-    - '!**/*.map'
-    - '!**/test/**'
-    - '!**/tests/**'
+DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" \
+  --output text)
 
-resources:
-  - ${file(../infrastructure/secrets/secrets.yml)}
+if [ "$DISTRIBUTION_ID" != "None" ] && [ -n "$DISTRIBUTION_ID" ]; then
+  aws cloudfront create-invalidation \
+    --distribution-id $DISTRIBUTION_ID \
+    --paths "/*"
+
+  echo "✅ Cache Invalidated"
+else
+  echo "⚠️ CloudFront Distribution not found, skipping..."
+fi
+
+# -------------------------------
+# 5. Show Final URLs
+# -------------------------------
+echo ""
+echo "🎉 DEPLOYMENT SUCCESSFUL!"
+echo "----------------------------------"
+echo "🌐 Frontend:"
+echo "$CLOUDFRONT_URL"
+echo ""
+echo "🔗 Backend API:"
+echo "$API_URL"
+echo "----------------------------------"
