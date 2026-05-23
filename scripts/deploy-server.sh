@@ -14,7 +14,7 @@ cd server
 # Clean old files
 # -------------------------------
 echo "🧹 Cleaning old files..."
-rm -rf .serverless dist
+rm -rf node_modules .serverless dist
 
 # -------------------------------
 # Environment Variables
@@ -24,19 +24,13 @@ JWT_SECRET="dhbrW6d4J6JsEBeNgeJm16xduZOdWd1bMSoF28FzQqy"
 OFFICE_LAT="23.103141295479464"
 OFFICE_LNG="72.59559139416137"
 
-FRONTEND_URL="https://d1wkcjqvneyzmt.cloudfront.net"
+FRONTEND_URL="http://localhost:5173"
 
 # -------------------------------
 # Install dependencies
 # -------------------------------
 echo "📦 Installing dependencies..."
 npm install --no-audit --no-fund
-
-# -------------------------------
-# Install esbuild plugin
-# -------------------------------
-echo "⚡ Installing esbuild..."
-npm install serverless-esbuild esbuild --save-dev
 
 # -------------------------------
 # Build NestJS project
@@ -57,12 +51,11 @@ npx serverless@3 --version
 # -------------------------------
 echo "☁️ Deploying backend to AWS..."
 
+
 JWT_SECRET="$JWT_SECRET" \
 OFFICE_LAT="$OFFICE_LAT" \
 OFFICE_LNG="$OFFICE_LNG" \
 FRONTEND_URL="$FRONTEND_URL" \
-NODE_OPTIONS="--max-old-space-size=4096" \
-SLS_DISABLE_WARNING="*" \
 npx serverless@3 deploy \
   --stage dev \
   --force \

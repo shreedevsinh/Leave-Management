@@ -5,31 +5,26 @@ set -e
 echo "🚀 Deploying Frontend..."
 
 # -------------------------------
-# Move to project root
-# -------------------------------
-cd "$(dirname "$0")/.."
-
-# -------------------------------
-# Build React App
+# 2. Build React App
 # -------------------------------
 echo "⚛️ Building React..."
-
 cd client
 
 npm ci
 
 echo "🌍 Using API URL: $VITE_API_URL"
 
-# Remove old env
+# ✅ Remove old env to avoid conflicts
 rm -f .env.production .env.production.local
 
-# Inject API URL
+# ✅ Inject correct API URL
 echo "VITE_API_URL=$VITE_API_URL" > .env.production.local
 
+# 🧪 Debug (optional)
 echo "📄 Injected env file:"
 cat .env.production.local
 
-# Build frontend
+# ✅ Build
 npm run build
 
 cd ..
@@ -37,22 +32,23 @@ cd ..
 echo "✅ Build Complete"
 
 # -------------------------------
-# Bucket + CloudFront
+# 3. Get Stack Info
 # -------------------------------
 STACK_NAME="leave-management-app-dev"
 
 echo "🔍 Fetching stack outputs..."
 
-# Hardcoded bucket
 BUCKET_NAME="employees-leaves-179814331655"
 
-# Hardcoded CloudFront
-CLOUDFRONT_URL="https://d1wkcjqvneyzmt.cloudfront.net"
+CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue" \
+  --output text)
 
 echo "🪣 Bucket: $BUCKET_NAME"
 
 # -------------------------------
-# Upload to S3
+# 4. Upload to S3
 # -------------------------------
 echo "☁️ Uploading..."
 
@@ -61,7 +57,7 @@ aws s3 sync client/dist s3://$BUCKET_NAME --delete
 echo "✅ Upload Done"
 
 # -------------------------------
-# Done
+# 5. Done
 # -------------------------------
 echo "🎉 Frontend Deployed!"
 echo "🌐 CloudFront URL:"
