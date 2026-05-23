@@ -26,6 +26,7 @@ else
   echo "⚠️ Using fallback: localhost"
 fi
 
+
 export FRONTEND_URL
 
 # -------------------------------
