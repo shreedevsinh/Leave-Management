@@ -27,6 +27,7 @@ else
 fi
 
 export FRONTEND_URL
+echo "$FRONTEND_URL"
 
 # -------------------------------
 # 1. Deploy Backend
