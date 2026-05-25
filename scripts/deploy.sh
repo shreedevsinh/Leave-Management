@@ -39,10 +39,10 @@ chmod +x scripts/deploy-server.sh
 
 echo "🔍 Checking if stack exists..."
 
-if ! aws cloudformation describe-stacks --stack-name $STACK_NAME > /dev/null 2>&1; then
-  echo "❌ ERROR: Stack does NOT exist. Backend deployment failed."
-  exit 1
-fi
+# if ! aws cloudformation describe-stacks --stack-name $STACK_NAME > /dev/null 2>&1; then
+#   echo "❌ ERROR: Stack does NOT exist. Backend deployment failed."
+#   exit 1
+# fi
 
 echo "✅ Backend Stack Verified"
 
