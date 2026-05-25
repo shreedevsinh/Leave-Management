@@ -380,10 +380,6 @@ resources:
               Resource:
                 - !Sub "${EmployeesLeavesBucket.Arn}/*"
 
-              Condition:
-                StringEquals:
-                  AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
-
   Outputs:
 
     EmployeesLeavesBucketName:
