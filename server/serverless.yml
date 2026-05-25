@@ -133,3 +133,4 @@ resources:
   - ${file(../infrastructure/secrets/secrets.yml)}
   # - ${file(../infrastructure/api/functions.yml)}
   # - ${file(../infrastructure/dynamodb/tables.yml)}
+  
