@@ -6,7 +6,7 @@ echo "🚀 Starting FULL Deployment..."
 
 cd "$(dirname "$0")/.."
 
-STACK_NAME="leave-management-app-dev"
+STACK_NAME="leave-management-app"
 
 # -------------------------------
 # 0. Fetch Existing CloudFront URL
