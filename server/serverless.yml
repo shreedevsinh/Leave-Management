@@ -378,6 +378,7 @@ resources:
 
               Resource: !Sub "arn:aws:s3:::employees-leaves-${AWS::AccountId}/*"
 
+
   Outputs:
 
     EmployeesLeavesBucketName:
