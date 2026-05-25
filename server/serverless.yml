@@ -1,7 +1,5 @@
 service: leave-management-app
 
-# frameworkVersion: '3'
-
 provider:
   name: aws
   runtime: nodejs20.x
@@ -18,9 +16,11 @@ provider:
       allowedOrigins:
         - ${env:FRONTEND_URL}
         - http://localhost:5173
+
       allowedHeaders:
         - Content-Type
         - Authorization
+
       allowedMethods:
         - GET
         - POST
@@ -28,10 +28,13 @@ provider:
         - PATCH
         - DELETE
         - OPTIONS
+
       allowCredentials: true
       maxAge: 3600
 
   iamRoleStatements:
+
+    # DYNAMODB
     - Effect: Allow
       Action:
         - dynamodb:GetItem
@@ -42,49 +45,156 @@ provider:
         - dynamodb:DeleteItem
         - dynamodb:BatchGetItem
         - dynamodb:BatchWriteItem
+
       Resource:
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveTypes/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Users
         - arn:aws:dynamodb:ap-south-1:*:table/Users/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Leaves
         - arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances
         - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Attendance
         - arn:aws:dynamodb:ap-south-1:*:table/Attendance/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming
         - arn:aws:dynamodb:ap-south-1:*:table/OfficeTiming/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Payrolls
         - arn:aws:dynamodb:ap-south-1:*:table/Payrolls/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Salaries
         - arn:aws:dynamodb:ap-south-1:*:table/Salaries/index/*
+
         - arn:aws:dynamodb:ap-south-1:*:table/Holiday
         - arn:aws:dynamodb:ap-south-1:*:table/Holiday/index/*
 
+    # CLOUDWATCH LOGS
     - Effect: Allow
       Action:
         - logs:CreateLogGroup
         - logs:CreateLogStream
         - logs:PutLogEvents
-      Resource: '*'
+
+      Resource: "*"
 
     # SECRETS MANAGER
     - Effect: Allow
       Action:
         - secretsmanager:GetSecretValue
+
       Resource:
         - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:leave-management/production-new*
 
 functions:
-  ${file(../infrastructure/api/functions.yml)}
+
+  attendance:
+    handler: ./dist/src/lambdas/lambda-attendance.handler
+
+    events:
+      - httpApi:
+          path: /attendance
+          method: ANY
+
+      - httpApi:
+          path: /attendance/{proxy+}
+          method: ANY
+
+  auth:
+    handler: ./dist/src/lambdas/lambda-auth.handler
+
+    events:
+      - httpApi:
+          path: /auth
+          method: ANY
+
+      - httpApi:
+          path: /auth/{proxy+}
+          method: ANY
+
+  users:
+    handler: ./dist/src/lambdas/lambda-users.handler
+
+    events:
+      - httpApi:
+          path: /users
+          method: ANY
+
+      - httpApi:
+          path: /users/{proxy+}
+          method: ANY
+
+  leaves:
+    handler: ./dist/src/lambdas/lambda-leaves.handler
+
+    events:
+      - httpApi:
+          path: /leaves
+          method: ANY
+
+      - httpApi:
+          path: /leaves/{proxy+}
+          method: ANY
+
+  leaveTypes:
+    handler: ./dist/src/lambdas/lambda-leave-types.handler
+
+    events:
+      - httpApi:
+          path: /leave-types
+          method: ANY
+
+      - httpApi:
+          path: /leave-types/{proxy+}
+          method: ANY
+
+  officeTime:
+    handler: ./dist/src/lambdas/lambda-officetime.handler
+
+    events:
+      - httpApi:
+          path: /officetime
+          method: ANY
+
+      - httpApi:
+          path: /officetime/{proxy+}
+          method: ANY
+
+  payRoll:
+    handler: ./dist/src/lambdas/lambda-payroll.handler
+
+    events:
+      - httpApi:
+          path: /payroll
+          method: ANY
+
+      - httpApi:
+          path: /payroll/{proxy+}
+          method: ANY
+
+  holiday:
+    handler: ./dist/src/lambdas/lambda-holiday.handler
+
+    events:
+      - httpApi:
+          path: /holidays
+          method: ANY
+
+      - httpApi:
+          path: /holidays/{proxy+}
+          method: ANY
 
 package:
   individually: true
   excludeDevDependencies: true
-
 
   patterns:
     - '!node_modules/**/test/**'
@@ -110,7 +220,6 @@ custom:
     target: node20
     platform: node
 
-    # IMPORTANT FIXES
     concurrency: 10
     zipConcurrency: 1
 
@@ -129,8 +238,159 @@ plugins:
   - serverless-esbuild
 
 resources:
-  - ${file(/home/rajni/Documents/shreedev/Leave-Management/infrastructure/s3/cloudfront.yml)}
-  - ${file(../infrastructure/secrets/secrets.yml)}
-  # - ${file(../infrastructure/api/functions.yml)}
-  # - ${file(../infrastructure/dynamodb/tables.yml)}
-  
+
+  Resources:
+
+    # =========================
+    # SECRETS MANAGER
+    # =========================
+
+    LeaveManagementSecret:
+      Type: AWS::SecretsManager::Secret
+
+      Properties:
+        Name: leave-management/production-new
+        Description: Production secrets
+
+        SecretString: !Sub |
+          {
+          "JWT_SECRET":"dhbrW6d4J6JsEBeNgeJm16xduZOdWd1bMSoF28FzQqy",
+          "JWT_EXPIRES_IN":"7d",
+          "OFFICE_LAT":"23.103141295479464",
+          "OFFICE_LNG":"72.59559139416137"
+          "GPG_KEY":"nothing"
+          }
+
+    # =========================
+    # S3 BUCKET
+    # =========================
+
+    EmployeesLeavesBucket:
+      Type: AWS::S3::Bucket
+
+      Properties:
+        BucketName: employees-leaves-${aws:accountId}
+
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - "*"
+
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+
+              AllowedOrigins:
+                - "*"
+
+              MaxAge: 3000
+
+    # =========================
+    # CLOUDFRONT OAC
+    # =========================
+
+    FrontendOAC:
+      Type: AWS::CloudFront::OriginAccessControl
+
+      Properties:
+        OriginAccessControlConfig:
+          Name: frontend-oac
+          OriginAccessControlOriginType: s3
+          SigningBehavior: always
+          SigningProtocol: sigv4
+
+    # =========================
+    # CLOUDFRONT DISTRIBUTION
+    # =========================
+
+    FrontendDistribution:
+      Type: AWS::CloudFront::Distribution
+
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          DefaultRootObject: index.html
+
+          Origins:
+            - Id: S3Origin
+              DomainName: !GetAtt EmployeesLeavesBucket.RegionalDomainName
+              S3OriginConfig: {}
+              OriginAccessControlId: !Ref FrontendOAC
+
+          DefaultCacheBehavior:
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+
+            AllowedMethods:
+              - GET
+              - HEAD
+
+            CachedMethods:
+              - GET
+              - HEAD
+
+            ForwardedValues:
+              QueryString: false
+
+          CustomErrorResponses:
+            - ErrorCode: 403
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+              ErrorCachingMinTTL: 0
+
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+              ErrorCachingMinTTL: 0
+
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: true
+
+    # =========================
+    # BUCKET POLICY
+    # =========================
+
+    EmployeesLeavesBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+
+      Properties:
+        Bucket: !Ref EmployeesLeavesBucket
+
+        PolicyDocument:
+          Version: "2012-10-17"
+
+          Statement:
+            - Sid: AllowCloudFrontServicePrincipal
+              Effect: Allow
+
+              Principal:
+                Service: cloudfront.amazonaws.com
+
+              Action:
+                - s3:GetObject
+
+              Resource:
+                - !Sub "${EmployeesLeavesBucket.Arn}/*"
+
+              Condition:
+                StringEquals:
+                  AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+
+  Outputs:
+
+    EmployeesLeavesBucketName:
+      Value: !Ref EmployeesLeavesBucket
+
+    CloudFrontURL:
+      Value: !Sub "https://${FrontendDistribution.DomainName}"
+
+    FrontendDistributionId:
+      Value: !Ref FrontendDistribution
