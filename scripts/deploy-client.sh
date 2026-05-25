@@ -38,7 +38,10 @@ STACK_NAME="leave-management-app-dev"
 
 echo "🔍 Fetching stack outputs..."
 
-BUCKET_NAME="employees-leaves-179814331655"
+BUCKET_NAME=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='EmployeesLeavesBucketName'].OutputValue" \
+  --output text)
 
 CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
   --stack-name $STACK_NAME \
