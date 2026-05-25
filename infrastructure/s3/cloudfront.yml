@@ -3,7 +3,7 @@ Resources:
   EmployeesLeavesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: employees-leaves-${aws:accountId}
+      BucketName: !Sub "employees-leaves-${AWS::AccountId}"
 
   FrontendOAC:
     Type: AWS::CloudFront::OriginAccessControl
@@ -42,17 +42,6 @@ Resources:
           ForwardedValues:
             QueryString: false
 
-        CustomErrorResponses:
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
-
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
-
         ViewerCertificate:
           CloudFrontDefaultCertificate: true
 
@@ -62,11 +51,10 @@ Resources:
       Bucket: !Ref EmployeesLeavesBucket
 
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
 
         Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
+          - Effect: Allow
 
             Principal:
               Service: cloudfront.amazonaws.com
@@ -74,8 +62,7 @@ Resources:
             Action:
               - s3:GetObject
 
-            Resource:
-              - !Sub '${EmployeesLeavesBucket.Arn}/*'
+            Resource: !Sub "arn:aws:s3:::employees-leaves-${AWS::AccountId}/*"
 
 Outputs:
 
