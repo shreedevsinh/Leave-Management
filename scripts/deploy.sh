@@ -9,44 +9,16 @@ cd "$(dirname "$0")/.."
 STACK_NAME="leave-management-app-dev"
 
 # -------------------------------
-# 0. Fetch CloudFront URL FIRST ✅
-# -------------------------------
-echo "🔍 Fetching existing CloudFront URL..."
-
-CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
-  --stack-name $STACK_NAME \
-  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue" \
-  --output text 2>/dev/null || echo "")
-
-if [ "$CLOUDFRONT_URL" != "None" ] && [ -n "$CLOUDFRONT_URL" ]; then
-  FRONTEND_URL=$CLOUDFRONT_URL
-  echo "✅ Using CloudFront URL: $CLOUDFRONT_URL"
-else
-  FRONTEND_URL=http://localhost:5173
-  echo "⚠️ Using fallback: localhost"
-fi
-
-export FRONTEND_URL
-echo "$FRONTEND_URL"
-
-
-# -------------------------------
 # 1. Deploy Backend
 # -------------------------------
 echo "📦 Step 1: Deploying Backend..."
+
 ./scripts/deploy-server.sh
 
-echo "🔍 Checking if stack exists..."
-
-if ! aws cloudformation describe-stacks --stack-name $STACK_NAME > /dev/null 2>&1; then
-  echo "❌ ERROR: Stack does NOT exist. Backend deployment failed."
-  exit 1
-fi
-
-echo "✅ Backend Stack Verified"
+echo "✅ Backend Deployment Complete"
 
 # -------------------------------
-# 2. Fetch API URL ✅ (MOVE HERE)
+# 2. Fetch API URL
 # -------------------------------
 echo "🔗 Fetching Backend API URL..."
 
@@ -57,49 +29,54 @@ API_URL=$(aws cloudformation describe-stacks \
 
 if [ "$API_URL" != "None" ] && [ -n "$API_URL" ]; then
   export VITE_API_URL=$API_URL
-  echo "✅ API URL set: $API_URL"
+  echo "✅ API URL: $API_URL"
 else
   echo "❌ ERROR: API URL not found"
-  export VITE_API_URL = "http://localhost:3000"
   exit 1
 fi
 
 # -------------------------------
-# 3. Deploy Frontend ✅ NOW CORRECT
+# 3. Build Frontend
 # -------------------------------
-echo "⚛️ Step 2: Deploying Frontend..."
-./scripts/deploy-client.sh
+echo "⚛️ Building Frontend..."
 
-echo "✅ Frontend Done"
+cd client
+
+rm -rf dist
+rm -f .env.production
+
+echo "VITE_API_URL=$API_URL" > .env.production
+
+npm install
+npm run build
+
+cd ..
 
 # -------------------------------
-# 4. CloudFront Invalidation
+# 4. Upload Frontend to S3
 # -------------------------------
-echo "🌍 Step 3: Invalidating CloudFront Cache..."
+echo "☁️ Uploading Frontend to S3..."
 
-DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+BUCKET_NAME=$(aws cloudformation describe-stacks \
   --stack-name $STACK_NAME \
-  --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" \
+  --query "Stacks[0].Outputs[?OutputKey=='EmployeesLeavesBucketName'].OutputValue" \
   --output text)
 
-if [ "$DISTRIBUTION_ID" != "None" ] && [ -n "$DISTRIBUTION_ID" ]; then
-  aws cloudfront create-invalidation \
-    --distribution-id $DISTRIBUTION_ID \
-    --paths "/*"
-
-  echo "✅ Cache Invalidated"
-else
-  echo "⚠️ CloudFront Distribution not found, skipping..."
-fi
+aws s3 sync client/dist s3://$BUCKET_NAME --delete
 
 # -------------------------------
-# 5. Show Final URLs
+# 5. Fetch Website URL
+# -------------------------------
+WEBSITE_URL="http://$BUCKET_NAME.s3-website.ap-south-1.amazonaws.com"
+
+# -------------------------------
+# FINAL
 # -------------------------------
 echo ""
 echo "🎉 DEPLOYMENT SUCCESSFUL!"
 echo "----------------------------------"
-echo "🌐 Frontend:"
-echo "$CLOUDFRONT_URL"
+echo "🌐 Frontend URL:"
+echo "$WEBSITE_URL"
 echo ""
 echo "🔗 Backend API:"
 echo "$API_URL"
