@@ -4,70 +4,47 @@ set -e
 
 echo "🚀 Deploying Backend (NestJS + Serverless)..."
 
-# -------------------------------
-# Move to server folder
-# -------------------------------
 cd "$(dirname "$0")/.."
 cd server
 
-# -------------------------------
-# Clean old files
-# -------------------------------
 echo "🧹 Cleaning old files..."
-rm -rf node_modules .serverless dist
+rm -rf node_modules .serverless
 
 # -------------------------------
-# Environment Variables
-# -------------------------------
-JWT_SECRET="dhbrW6d4J6JsEBeNgeJm16xduZOdWd1bMSoF28FzQqy"
-
-OFFICE_LAT="23.103141295479464"
-OFFICE_LNG="72.59559139416137"
-
-FRONTEND_URL="http://localhost:5173"
-
-# -------------------------------
-# Install dependencies
+# 1. Install Dependencies
 # -------------------------------
 echo "📦 Installing dependencies..."
-npm install --no-audit --no-fund
+npm i
+echo "Uninstalling serverless..."
+npm uninstall serverless
+serverless --version
+echo "Installing serverless@3..."
+npm install -g serverless@3
+serverless --version
 
 # -------------------------------
-# Build NestJS project
+# 2. Build Project
 # -------------------------------
 echo "🏗️ Building project..."
 npm run build
 
-echo "✅ Backend build complete"
+echo "✅ Build Complete"
 
 # -------------------------------
-# Verify Serverless Version
+# 3. Deploy
 # -------------------------------
-echo "📌 Using Serverless v3..."
-npx serverless@3 --version
-
-# -------------------------------
-# Deploy to AWS
-# -------------------------------
-echo "☁️ Deploying backend to AWS..."
+echo "☁️ Deploying to AWS..."
+echo "FRONTEND_URL=$FRONTEND_URL"
 
 
-JWT_SECRET="$JWT_SECRET" \
-OFFICE_LAT="$OFFICE_LAT" \
-OFFICE_LNG="$OFFICE_LNG" \
-FRONTEND_URL="$FRONTEND_URL" \
-npx serverless@3 deploy \
-  --stage dev \
+FRONTEND_URL="$FRONTEND_URL" npx serverless deploy \
   --force \
   --config serverless.yml
 
-echo "✅ Backend deployed successfully"
+echo "✅ Backend Deployed"
 
 # -------------------------------
-# Show API info
+# 4. Show API Info
 # -------------------------------
 echo "🌐 Fetching API endpoints..."
-
-npx serverless@3 info \
-  --verbose \
-  --stage dev || echo "⚠️ Could not fetch API info"
+npx serverless info --verbose || echo "⚠️ Could not fetch API info"

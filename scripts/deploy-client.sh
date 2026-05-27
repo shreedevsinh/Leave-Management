@@ -1,3 +1,4 @@
+`deploy-client.sh`
 #!/bin/bash
 
 set -e
