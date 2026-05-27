@@ -2,17 +2,13 @@ Resources:
   EmployeesLeavesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: employees-leaves-${aws:accountId}-${sls:stage}
+      BucketName:  employees-leaves-${aws:accountId}-${sls:stage}
 
       PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
       CorsConfiguration:
         CorsRules:
@@ -34,16 +30,15 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: PublicReadGetObject
-            Effect: Allow
-            Principal: "*"
-            Action:
-              - s3:GetObject
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
             Resource: !Sub "${EmployeesLeavesBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
 
 Outputs:
   EmployeesLeavesBucketName:
     Value: !Ref EmployeesLeavesBucket
-
-  WebsiteURL:
-    Value: !GetAtt EmployeesLeavesBucket.WebsiteURL

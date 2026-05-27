@@ -77,12 +77,3 @@ holiday:
     - httpApi:
         path: /holidays/{proxy+}
         method: ANY
-
-
-
-
-
-
-
-
-

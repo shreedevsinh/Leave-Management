@@ -1,10 +1,4 @@
 Resources:
-
-  EmployeesLeavesBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "employees-leaves-${AWS::AccountId}"
-
   FrontendOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -30,45 +24,30 @@ Resources:
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-
           AllowedMethods:
             - GET
             - HEAD
-
           CachedMethods:
             - GET
             - HEAD
-
           ForwardedValues:
             QueryString: false
 
+        CustomErrorResponses:
+        - ErrorCode: 403
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+          ErrorCachingMinTTL: 0
+
+        - ErrorCode: 404
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+          ErrorCachingMinTTL: 0
+          
         ViewerCertificate:
           CloudFrontDefaultCertificate: true
 
-  EmployeesLeavesBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref EmployeesLeavesBucket
-
-      PolicyDocument:
-        Version: "2012-10-17"
-
-        Statement:
-          - Effect: Allow
-
-            Principal:
-              Service: cloudfront.amazonaws.com
-
-            Action:
-              - s3:GetObject
-
-            Resource: !Sub "arn:aws:s3:::employees-leaves-${AWS::AccountId}/*"
-
 Outputs:
-
-  EmployeesLeavesBucketName:
-    Value: !Ref EmployeesLeavesBucket
-
   CloudFrontURL:
     Value: !Sub "https://${FrontendDistribution.DomainName}"
 

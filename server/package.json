@@ -62,7 +62,6 @@
     "esbuild": "^0.28.0",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
-    "serverless": "^4.35.1",
     "serverless-esbuild": "^1.57.2",
     "serverless-plugin-include-dependencies": "^6.1.1",
     "supertest": "^7.0.0",
