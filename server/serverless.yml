@@ -1,6 +1,5 @@
   service: leave-management-app
 
-  # frameworkVersion: '3'
 
   provider:
     name: aws
@@ -49,7 +48,7 @@
           - arn:aws:dynamodb:ap-south-1:*:table/Users/index/*
           - arn:aws:dynamodb:ap-south-1:*:table/Leaves
           - arn:aws:dynamodb:ap-south-1:*:table/Leaves/index/*
-          - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs
+          - arn:aws:dynamodb:ap-south-1:*:table/LpeaveLogs
           - arn:aws:dynamodb:ap-south-1:*:table/LeaveLogs/index/*
           - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances
           - arn:aws:dynamodb:ap-south-1:*:table/LeaveBalances/index/*
