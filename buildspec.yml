@@ -26,6 +26,7 @@ phases:
 
       - echo "Decryption complete"
 
+
   build:
     commands:
       - echo "Normalizing shell scripts..."
