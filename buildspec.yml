@@ -13,9 +13,9 @@ phases:
     commands:
       - echo "Starting decryption..."
 
-      - test -n "$GPG_KEY" || (echo "GPG_KEY is missing!" && exit 1)      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/api/functions.yml -d infrastructure/api/functions.yml.gpg
-
-
+      - test -n "$GPG_KEY" || (echo "GPG_KEY is missing!" && exit 1)      
+      
+      - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/api/functions.yml -d infrastructure/api/functions.yml.gpg
       - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/dynamodb/tables.yml -d infrastructure/dynamodb/tables.yml.gpg
       - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/secrets/secrets.yml -d infrastructure/secrets/secrets.yml.gpg
       - gpg --batch --yes --passphrase "$GPG_KEY" -o infrastructure/s3/frontend-bucket.yml -d infrastructure/s3/frontend-bucket.yml.gpg
