@@ -84,6 +84,7 @@
     individually: true
     excludeDevDependencies: true
 
+
     patterns:
       - '!node_modules/**/test/**'
       - '!node_modules/**/tests/**'
